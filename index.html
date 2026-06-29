@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>化学纸牌大战 - Chemistry Card Game</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { overflow:hidden; font-family:'Microsoft YaHei','SimHei',sans-serif; background:#0a0612; }
+
+/* ============ TABLE & BACKGROUND ============ */
+#game-table {
+  width:100vw; height:100vh;
+  background: radial-gradient(ellipse at 30% 50%, #1a7a3a 0%, #0d5a28 30%, #093a1a 60%, #052010 100%);
+  position:relative; display:flex; align-items:center; justify-content:center;
+}
+#game-table::before {
+  content:''; position:absolute; inset:0;
+  background: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M48 45v-6h-3v6h-6v3h6v6h3v-6h6v-3h-6zm0-40V0h-3v5h-6v3h6v6h3V8h6V5h-6zM8 45v-6H5v6H0v3h5v6h3v-6h6v-3H8zM8 5V0H5v5H0v3h5v6h3V8h6V5H8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events:none;
+}
+#game-table::after {
+  content:''; position:absolute; top:10%; left:50%; transform:translateX(-50%);
+  width:500px; height:500px; border-radius:50%;
+  background: radial-gradient(circle, rgba(46,204,113,0.06) 0%, transparent 70%);
+  pointer-events:none;
+}
+
+/* ============ PLAYER AREAS ============ */
+.player-area { position:absolute; display:flex; flex-direction:column; align-items:center; z-index:10; }
+.player-info {
+  background:linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.5));
+  border-radius:24px; padding:8px 18px; display:flex; align-items:center; gap:10px;
+  color:#fff; font-size:14px; border:1px solid rgba(255,255,255,0.12);
+  transition:all 0.3s ease;
+}
+.player-info.active {
+  border-color:#ffd700;
+  background:linear-gradient(135deg, rgba(50,30,0,0.8), rgba(80,60,0,0.7));
+  box-shadow:0 0 20px rgba(255,215,0,0.5), inset 0 0 10px rgba(255,215,0,0.1);
+  animation:player-pulse 1.2s ease-in-out infinite;
+}
+@keyframes player-pulse {
+  0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(255,215,0,0.5)}
+  50%{transform:scale(1.03);box-shadow:0 0 35px rgba(255,215,0,0.8)}
+}
+.player-avatar {
+  width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:22px; background:linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  border:1px solid rgba(255,255,255,0.2);
+  transition:all 0.3s;
+}
+.player-info.active .player-avatar {
+  background:linear-gradient(135deg, #ffd700, #ff8c00);
+  border-color:#ffd700;
+  animation:avatar-spin 2s ease-in-out infinite;
+}
+@keyframes avatar-spin {
+  0%,100%{transform:rotate(-5deg)}
+  50%{transform:rotate(5deg)}
+}
+.player-card-count {
+  background:linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+  border-radius:12px; padding:3px 10px; font-size:13px; font-weight:bold;
+  border:1px solid rgba(255,255,255,0.1);
+}
+
+#player-bottom { bottom:12px; left:50%; transform:translateX(-50%); }
+#player-bottom .player-info { order:-1; margin-bottom:10px; }
+#player-top { top:12px; left:50%; transform:translateX(-50%); }
+#player-top .hand { flex-direction:row; margin-top:10px; }
+#player-left { left:12px; top:50%; transform:translateY(-50%); }
+#player-left .hand { flex-direction:column; margin-left:10px; }
+#player-right { right:12px; top:50%; transform:translateY(-50%); }
+#player-right .hand { flex-direction:column; margin-right:10px; }
+
+/* ============ HANDS ============ */
+.hand { display:flex; gap:0; position:relative; }
+#player-bottom .hand { justify-content:center; }
+
+/* ============ CARDS ============ */
+.card {
+  width:96px; height:134px; border-radius:10px; position:relative; cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); flex-shrink:0; user-select:none;
+  box-shadow:0 4px 16px rgba(0,0,0,0.6);
+  animation:card-in 0.4s ease backwards;
+  background:var(--card-bg, #1a1a2e);
+}
+.card:hover {
+  transform:translateY(-18px) scale(1.1);
+  box-shadow:0 8px 25px rgba(0,0,0,0.6);
+  z-index:200;
+}
+@keyframes card-in {
+  from{opacity:0;transform:translateY(30px) scale(0.7);filter:blur(4px)}
+  to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+}
+
+.card-face {
+  width:100%; height:100%; border-radius:10px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; overflow:hidden; position:relative;
+  border:2px solid #fff;
+  box-shadow:inset 0 2px 4px rgba(255,255,255,0.5), 0 3px 12px rgba(0,0,0,0.5);
+}
+
+.card-face .card-formula {
+  font-size:20px; font-weight:900; text-align:center; line-height:1.15;
+  text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.6); z-index:2;
+  color:#fff; -webkit-font-smoothing:antialiased;
+}
+.card-face .card-name {
+  font-size:14px; font-weight:800; margin-top:4px; text-align:center;
+  text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.6); z-index:2;
+  color:#fff; -webkit-font-smoothing:antialiased;
+}
+.card-face .card-type {
+  font-size:10px; font-weight:700; position:absolute; bottom:4px;
+  z-index:2; color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,0.85);
+}
+.card-face .card-corner {
+  position:absolute; top:3px; left:5px; font-size:11px; font-weight:900;
+  z-index:2; color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,0.85);
+}
+.card-face .card-state {
+  position:absolute; top:3px; right:5px; font-size:18px; z-index:2;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,0.7));
+}
+
+/* playable cards glow */
+.card.playable {
+  animation:playable-glow 1.2s ease-in-out infinite;
+  z-index:50;
+}
+@keyframes playable-glow {
+  0%,100%{box-shadow:0 0 10px rgba(255,215,0,0.5), 0 3px 12px rgba(0,0,0,0.5); transform:translateY(0)}
+  50%{box-shadow:0 0 25px rgba(255,215,0,0.9), 0 3px 12px rgba(0,0,0,0.5); transform:translateY(-4px)}
+}
+.card.playable:hover {
+  transform:translateY(-22px) scale(1.12) !important;
+  box-shadow:0 0 35px rgba(255,215,0,0.95), 0 8px 25px rgba(0,0,0,0.4) !important;
+  z-index:200 !important;
+}
+
+/* unplayable cards dimmed */
+.card.unplayable { transform:scale(0.95); }
+
+/* card back */
+.card-back {
+  width:100%; height:100%; border-radius:10px;
+  background:linear-gradient(135deg, #1a1a3a, #2d2d5a, #1a1a3a);
+  border:2px solid #4444aa;
+  display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;
+  animation:card-back-shimmer 3s ease-in-out infinite;
+}
+@keyframes card-back-shimmer {
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+.card-back::before {
+  content:''; position:absolute; inset:0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(100,100,200,0.06) 4px, rgba(100,100,200,0.06) 8px);
+}
+.card-back::after { content:'⚗'; font-size:28px; color:rgba(120,180,255,0.5); z-index:2; }
+
+/* Card overlap for hands */
+#player-bottom .hand .card { margin-left:-18px; }
+#player-bottom .hand .card:first-child { margin-left:0; }
+#player-top .hand .card { margin-left:-32px; width:48px; height:68px; }
+#player-top .hand .card:first-child { margin-left:0; }
+#player-left .hand .card { margin-top:-58px; width:48px; height:68px; }
+#player-left .hand .card:first-child { margin-top:0; }
+#player-right .hand .card { margin-top:-58px; width:48px; height:68px; }
+#player-right .hand .card:first-child { margin-top:0; }
+
+/* AI card play animation */
+@keyframes ai-play {
+  0%{transform:scale(1)}
+  50%{transform:scale(1.15) translateY(-10px)}
+  100%{transform:scale(1)}
+}
+.card.ai-playing { animation:ai-play 0.5s ease; }
+
+/* ============ CENTER AREA ============ */
+#center-area {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  display:flex; align-items:center; gap:40px; z-index:20;
+}
+#center-area > * { display:flex; flex-direction:column; align-items:center; }
+#play-pile { display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; }
+#play-pile .card { width:90px; height:126px; cursor:default; transform:none !important; animation:none; }
+#play-pile .card .card-face .card-formula { font-size:24px; text-shadow:0 2px 5px rgba(0,0,0,0.9); }
+#play-pile .card .card-face .card-name { font-size:15px; text-shadow:0 2px 5px rgba(0,0,0,0.9); }
+#last-play-label { color:rgba(255,255,255,0.6); font-size:12px; font-weight:600; }
+
+#draw-pile { display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; }
+#draw-pile .pile-stack { position:relative; width:90px; height:126px; }
+#draw-pile .pile-stack .card { position:absolute; animation:none; }
+#draw-pile .pile-stack .card:nth-child(1) { top:5px; left:5px; }
+#draw-pile .pile-stack .card:nth-child(2) { top:2px; left:2px; }
+#draw-pile .pile-stack .card:nth-child(3) { top:0; left:0; }
+#draw-count { color:rgba(255,255,255,0.8); font-size:13px; font-weight:700; }
+#draw-label { color:rgba(255,255,255,0.5); font-size:12px; }
+#draw-pile:hover .pile-stack .card:last-child {
+  box-shadow:0 0 20px rgba(255,255,255,0.4), 0 0 40px rgba(255,255,255,0.1);
+  transform:translateY(-3px);
+}
+
+/* ============ TOAST ============ */
+#toast-container { position:absolute; top:28%; left:50%; transform:translateX(-50%); z-index:1000; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
+.toast {
+  background:linear-gradient(135deg, rgba(0,0,0,0.92), rgba(30,20,0,0.9));
+  color:#fff; padding:10px 24px; border-radius:24px; font-size:15px; font-weight:600;
+  border:1px solid rgba(255,215,0,0.3);
+  box-shadow:0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(255,215,0,0.15);
+  animation:toast-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  white-space:nowrap;
+}
+@keyframes toast-pop {
+  from{opacity:0;transform:translateY(-30px) scale(0.8);filter:blur(8px)}
+  to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+}
+.toast.leaving { animation:toast-leave 0.4s ease forwards; }
+@keyframes toast-leave {
+  to{opacity:0;transform:translateY(-15px) scale(0.9);filter:blur(4px)}
+}
+.toast .match-reason { color:#ffd700; font-size:13px; display:block; margin-top:3px; }
+
+/* ============ START SCREEN ============ */
+#start-screen {
+  position:absolute; inset:0; z-index:2000;
+  background:linear-gradient(135deg, #0f1f15, #1a3a28, #0a1e14);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;
+}
+#start-screen::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle at 20% 80%, rgba(46,204,113,0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(100,100,255,0.08) 0%, transparent 50%);
+  pointer-events:none;
+}
+#start-screen h1 { font-size:56px; color:#fff; text-shadow:0 0 40px rgba(46,204,113,0.4); position:relative; z-index:2; }
+#start-screen h1 span { color:#2ecc71; text-shadow:0 0 30px rgba(46,204,113,0.6); }
+#start-screen .subtitle { color:rgba(255,255,255,0.65); font-size:17px; position:relative; z-index:2; }
+#start-btn {
+  padding:16px 64px; font-size:24px; font-weight:700;
+  background:linear-gradient(135deg, #2ecc71, #27ae60, #2ecc71);
+  background-size:200% 200%;
+  color:#fff; border:none; border-radius:32px; cursor:pointer;
+  transition:all 0.3s;
+  box-shadow:0 6px 25px rgba(46,204,113,0.4), 0 0 20px rgba(46,204,113,0.2);
+  position:relative; z-index:2;
+  animation:btn-glow 2s ease-in-out infinite;
+}
+@keyframes btn-glow {
+  0%,100%{box-shadow:0 6px 25px rgba(46,204,113,0.4), 0 0 20px rgba(46,204,113,0.2)}
+  50%{box-shadow:0 6px 35px rgba(46,204,113,0.6), 0 0 35px rgba(46,204,113,0.35)}
+}
+#start-btn:hover { transform:scale(1.08); filter:brightness(1.15); }
+.rules-box {
+  background:rgba(0,0,0,0.5); border:1px solid rgba(46,204,113,0.2); border-radius:16px;
+  padding:24px 32px; max-width:640px; color:rgba(255,255,255,0.85); font-size:14px; line-height:1.9;
+  position:relative; z-index:2;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);
+}
+.rules-box h3 { color:#2ecc71; font-size:18px; margin-bottom:12px; }
+
+/* ============ WIN SCREEN ============ */
+#win-screen {
+  position:absolute; inset:0; z-index:2000; background:rgba(0,0,0,0.88);
+  display:none; flex-direction:column; align-items:center; justify-content:center; gap:24px;
+}
+#win-screen h1 { font-size:56px; text-shadow:0 0 40px rgba(255,215,0,0.5); animation:win-bounce 1s ease infinite; }
+@keyframes win-bounce {
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.05)}
+}
+#win-screen .win-text { color:rgba(255,255,255,0.85); font-size:20px; }
+#restart-btn {
+  padding:14px 56px; font-size:22px; font-weight:700;
+  background:linear-gradient(135deg, #f39c12, #e67e22); color:#fff; border:none;
+  border-radius:32px; cursor:pointer; transition:all 0.3s;
+  box-shadow:0 4px 20px rgba(243,156,18,0.4);
+}
+#restart-btn:hover { transform:scale(1.08); filter:brightness(1.15); }
+
+/* ============ CATEGORY COLORS - DARK SOLID BACKGROUNDS ============ */
+.cat-alkali-metal .card-face { background:linear-gradient(160deg, #8B6914, #B8860B, #DAA520); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-alkaline-earth .card-face { background:linear-gradient(160deg, #8B4500, #CD6600, #FF8C00); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-transition-metal .card-face { background:linear-gradient(160deg, #5D3A1A, #8B5A2B, #CD853F); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-nonmetal .card-face { background:linear-gradient(160deg, #2C3E50, #34495E, #5D6D7E); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-halogen .card-face { background:linear-gradient(160deg, #0B5345, #117864, #1ABC9C); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-acid .card-face { background:linear-gradient(160deg, #641E16, #922B21, #C0392B); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-base .card-face { background:linear-gradient(160deg, #154360, #1F618D, #2980B9); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-salt .card-face { background:linear-gradient(160deg, #4A235A, #6C3483, #8E44AD); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+.cat-oxide .card-face { background:linear-gradient(160deg, #6E2C00, #A04000, #D35400); color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+/* ============ TOOLTIP ============ */
+.card-tooltip {
+  position:absolute; bottom:110%; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg, #1a1a2e, #16213e);
+  border:1px solid rgba(100,200,255,0.3);
+  border-radius:10px; padding:10px 14px; min-width:160px;
+  color:#fff; font-size:12px; line-height:1.6;
+  box-shadow:0 4px 20px rgba(0,0,0,0.6), 0 0 15px rgba(100,200,255,0.1);
+  z-index:1000; pointer-events:none; opacity:0; transition:opacity 0.2s;
+  white-space:nowrap;
+}
+.card-tooltip.visible { opacity:1; }
+.card-tooltip .tt-title { font-weight:800; font-size:13px; color:#4fc3f7; margin-bottom:4px; border-bottom:1px solid rgba(100,200,255,0.2); padding-bottom:3px; }
+.card-tooltip .tt-tag { display:inline-block; background:rgba(100,200,255,0.15); border:1px solid rgba(100,200,255,0.25); border-radius:10px; padding:1px 8px; margin:2px; font-size:10px; color:#81d4fa; }
+.card:hover .card-tooltip { opacity:1; }
+
+/* ============ SPECIAL EFFECTS ============ */
+#effects-layer { position:absolute; inset:0; pointer-events:none; z-index:999; overflow:hidden; }
+.particle {
+  position:absolute; width:8px; height:8px; border-radius:50%;
+  animation:particle-float 2s ease-out forwards;
+}
+@keyframes particle-float {
+  0%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(0.2)}
+}
+.sparkle {
+  position:absolute; font-size:20px;
+  animation:sparkle-pop 0.8s ease-out forwards;
+}
+@keyframes sparkle-pop {
+  0%{opacity:1;transform:scale(0) rotate(0deg)}
+  50%{opacity:1;transform:scale(1.5) rotate(180deg)}
+  100%{opacity:0;transform:scale(0) rotate(360deg)}
+}
+.screen-flash { position:absolute; inset:0; pointer-events:none; z-index:1001; animation:flash 0.3s ease forwards; }
+@keyframes flash { 0%{background:rgba(255,255,255,0.2)} 100%{background:transparent} }
+
+/* ============ CONFETTI ============ */
+.confetti { position:absolute; width:10px; height:10px; pointer-events:none; z-index:3000; }
+@keyframes confetti-fall {
+  0%{opacity:1;transform:translateY(-100vh) rotate(0deg)}
+  100%{opacity:0.3;transform:translateY(100vh) rotate(720deg)}
+}
+
+
+
+
+/* ============ REACTION STATS PANEL ============ */
+#reaction-stats {
+  position:absolute; top:12px; right:12px; z-index:100;
+  background:linear-gradient(135deg, rgba(0,0,0,0.85), rgba(10,6,18,0.9));
+  border:1px solid rgba(52,152,219,0.25);
+  border-radius:12px; padding:10px 14px;
+  min-width:160px; color:#fff; font-size:12px; line-height:1.6;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5), 0 0 10px rgba(52,152,219,0.08);
+}
+#reaction-stats .rs-title {
+  font-size:13px; font-weight:800; color:#3498db;
+  margin-bottom:6px; border-bottom:1px solid rgba(52,152,219,0.2);
+  padding-bottom:4px; text-align:center;
+}
+.rs-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; }
+.rs-label { color:rgba(255,255,255,0.7); font-size:11px; }
+.rs-value { font-weight:800; font-size:14px; min-width:24px; text-align:right; }
+.rs-redox { color:#e74c3c; }
+.rs-precip { color:#f39c12; }
+.rs-gas { color:#2ecc71; }
+.rs-water { color:#3498db; }
+.rs-complex { color:#9b59b6; }
+.rs-complete { animation:rs-pulse 0.6s ease 3; }
+@keyframes rs-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+
+/* ============ FIREWORKS ============ */
+#fireworks-layer {
+  position:fixed; inset:0; z-index:9999; pointer-events:none;
+  display:none; justify-content:center; align-items:center;
+}
+#fireworks-layer.active { display:flex; }
+.firework {
+  position:absolute; width:6px; height:6px; border-radius:50%;
+  animation:fw-burst 2s ease-out forwards;
+}
+@keyframes fw-burst {
+  0% { transform:translate(0,0) scale(1); opacity:1; }
+  100% { transform:translate(var(--tx), var(--ty)) scale(0); opacity:0; }
+}
+.fw-center-text {
+  position:absolute; font-size:36px; font-weight:900;
+  color:#ffd700; text-shadow:0 0 30px rgba(255,215,0,0.8), 0 0 60px rgba(255,100,0,0.5);
+  animation:fw-text-pop 2s ease forwards; z-index:10;
+}
+@keyframes fw-text-pop {
+  0% { transform:scale(0); opacity:0; }
+  20% { transform:scale(1.2); opacity:1; }
+  80% { transform:scale(1); opacity:1; }
+  100% { transform:scale(0.8); opacity:0; }
+}
+/* ============ PLAY HISTORY PANEL ============ */
+#play-history {
+  position:absolute; top:12px; left:12px; z-index:100;
+  background:linear-gradient(135deg, rgba(0,0,0,0.85), rgba(10,6,18,0.9));
+  border:1px solid rgba(46,204,113,0.25);
+  border-radius:12px; padding:10px 14px;
+  min-width:220px; max-width:280px;
+  color:#fff; font-size:12px; line-height:1.5;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5), 0 0 10px rgba(46,204,113,0.08);
+}
+#play-history .ph-title {
+  font-size:13px; font-weight:800; color:#2ecc71;
+  margin-bottom:6px; border-bottom:1px solid rgba(46,204,113,0.2);
+  padding-bottom:4px;
+}
+.ph-entry {
+  padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.06);
+  display:flex; flex-direction:column; gap:1px;
+}
+.ph-entry:last-child { border-bottom:none; }
+.ph-player { font-weight:700; font-size:11px; }
+.ph-player.p0 { color:#2ecc71; }
+.ph-player.p1 { color:#3498db; }
+.ph-player.p2 { color:#e67e22; }
+.ph-player.p3 { color:#9b59b6; }
+.ph-card { color:#ffd700; font-weight:700; }
+.ph-reason { color:rgba(255,255,255,0.6); font-size:10px; }
+.ph-empty { color:rgba(255,255,255,0.4); font-style:italic; font-size:11px; }
+/* ============ SKIP TURN BUTTON ============ */
+#skip-turn-btn {
+  padding:10px 18px; font-size:14px; font-weight:700;
+  background:linear-gradient(135deg, #7f8c8d, #616a6b); color:#fff;
+  border:none; border-radius:20px; cursor:pointer;
+  box-shadow:0 4px 15px rgba(127,140,141,0.4);
+  transition:all 0.3s; z-index:500;
+  margin-top:12px; align-self:center;
+}
+#skip-turn-btn:hover { transform:scale(1.08); filter:brightness(1.15); }
+#skip-turn-btn:disabled { opacity:0.3; cursor:not-allowed; transform:none; filter:none; }
+/* ============ RESPONSIVE ============ */
+@media(max-width:768px){
+  body { overflow:auto; height:100vh; }
+  #game-table { min-height:100vh; height:auto; padding-bottom:20px; }
+  .card { width:65px; height:91px; border-radius:8px; }
+  .card:hover { transform:translateY(-10px) scale(1.08); z-index:200; }
+  .card-face { border-radius:8px; border-width:1.5px; }
+  .card-face .card-formula { font-size:13px; }
+  .card-face .card-name { font-size:9px; margin-top:2px; }
+  .card-face .card-type { font-size:8px; bottom:3px; }
+  .card-face .card-corner { font-size:8px; top:2px; left:3px; }
+  .card-face .card-state { font-size:12px; top:2px; right:3px; }
+
+  #player-bottom .hand .card { margin-left:-20px; }
+  #player-top .hand .card { margin-left:-24px; width:36px; height:50px; }
+  #player-left .hand .card { margin-top:-42px; width:36px; height:50px; }
+  #player-right .hand .card { margin-top:-42px; width:36px; height:50px; }
+
+  #play-pile .card { width:68px; height:96px; }
+  #play-pile .card .card-face .card-formula { font-size:14px; }
+  #play-pile .card .card-face .card-name { font-size:10px; }
+  #draw-pile .pile-stack { width:60px; height:84px; }
+  #draw-count { font-size:11px; }
+  #draw-label { font-size:10px; }
+  #last-play-label { font-size:10px; }
+
+  #start-screen h1 { font-size:32px; }
+  #start-screen .subtitle { font-size:14px; }
+  .rules-box { max-width:90%; padding:16px 20px; font-size:13px; }
+  #start-btn { padding:12px 40px; font-size:18px; }
+  #win-screen h1 { font-size:36px; }
+  #win-screen .win-text { font-size:16px; }
+  #restart-btn { padding:12px 40px; font-size:18px; }
+
+  .player-info { padding:6px 12px; font-size:12px; gap:6px; }
+  .player-avatar { width:28px; height:28px; font-size:16px; }
+  .player-card-count { padding:2px 6px; font-size:11px; }
+
+  #player-top { top:6px; }
+  #player-bottom { bottom:6px; }
+  #player-left { left:6px; }
+  #player-right { right:6px; }
+
+  #center-area { gap:20px; }
+  .toast { padding:8px 16px; font-size:13px; max-width:90vw; white-space:normal; text-align:center; }
+  .toast .match-reason { font-size:11px; }
+
+  #draw-choice-bar { bottom:100px !important; }
+  .draw-choice-btn { padding:6px 14px !important; font-size:12px !important; }
+
+  .card-tooltip { min-width:120px; padding:8px 10px; font-size:11px; bottom:105%; }
+  #play-history { min-width:160px; max-width:200px; padding:8px 10px; font-size:10px; }
+  #reaction-stats { min-width:120px; padding:8px 10px; font-size:10px; }
+  #reaction-stats .rs-title { font-size:11px; }
+  .rs-label { font-size:10px; }
+  .rs-value { font-size:12px; }
+  .fw-center-text { font-size:24px; }
+  #play-history .ph-title { font-size:11px; }
+  .ph-entry { padding:2px 0; }
+  .ph-player { font-size:10px; }
+  .ph-card { font-size:10px; }
+  .ph-reason { font-size:9px; }
+}
+
+/* ============ MOBILE PORTRAIT ============ */
+@media(max-width:480px){
+  #game-table { background: radial-gradient(ellipse at 50% 40%, #1a7a3a 0%, #0d5a28 30%, #093a1a 60%, #052010 100%); overflow:hidden; }
+
+  /* === 出牌记录（最顶部，全宽，3条记录，可拖拽）=== */
+  #play-history {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    min-width: auto;
+    max-width: none;
+    padding: 4px 8px;
+    font-size: 9px;
+    z-index: 100;
+    max-height: 76px;
+    overflow: hidden;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  #play-history .ph-title { font-size: 10px; margin-bottom: 2px; }
+  .ph-entry { padding: 1px 0; }
+  .ph-player { font-size: 9px; }
+  .ph-card { font-size: 9px; }
+  .ph-reason { font-size: 8px; }
+
+  /* === 中间核心区域（占屏幕约1/2）=== */
+  /* 包含：AI手牌 + 出牌区/摸牌区/跳过 + 我的手牌 */
+
+  /* AI玩家（中间区域顶部，放大） */
+  #player-top {
+    position: absolute;
+    top: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #player-top .hand {
+    display: flex;
+    flex-direction: row;
+    margin-top: 3px;
+  }
+  #player-top .hand .card {
+    width: 55px; height: 77px; margin-left: -18px; border-radius: 6px;
+  }
+  #player-top .hand .card:first-child { margin-left: 0; }
+  #player-top .player-info {
+    order: -1;
+    margin-bottom: 3px;
+    padding: 3px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  #player-top .player-avatar { width: 22px; height: 22px; font-size: 13px; }
+  #player-top .player-card-count { padding: 1px 5px; font-size: 10px; }
+
+  /* 隐藏左右玩家 */
+  #player-left { display:none !important; }
+  #player-right { display:none !important; }
+
+  /* 出牌区/摸牌区/跳过（中间区域中部，放大） */
+  #center-area {
+    position: absolute;
+    top: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 20px;
+    z-index: 20;
+  }
+  #play-pile .card { width: 70px; height: 98px; border-radius: 8px; }
+  #play-pile .card .card-face .card-formula { font-size: 16px; }
+  #play-pile .card .card-face .card-name { font-size: 11px; }
+  #draw-pile .pile-stack { width: 70px; height: 98px; border-radius: 8px; }
+  #draw-count { font-size: 12px; }
+  #draw-label { font-size: 11px; }
+  #last-play-label { font-size: 11px; }
+  #skip-turn-btn { padding: 8px 16px; font-size: 12px; margin-top: 6px; }
+
+  /* 人类玩家手牌（中间区域底部，放大） */
+  #player-bottom {
+    position: absolute;
+    top: 340px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+  }
+  #player-bottom .hand {
+    overflow-x: auto;
+    padding: 0 10px;
+    justify-content: center;
+  }
+  #player-bottom .hand .card {
+    width: 65px; height: 91px; margin-left: -16px; border-radius: 7px;
+  }
+  #player-bottom .hand .card:first-child { margin-left: 0; }
+  #player-bottom .player-info {
+    margin-bottom: 3px;
+    padding: 3px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  #player-bottom .player-avatar { width: 22px; height: 22px; font-size: 13px; }
+  #player-bottom .player-card-count { padding: 1px 5px; font-size: 10px; }
+
+  /* 卡牌通用尺寸（手机端放大） */
+  .card { width: 65px; height: 91px; }
+  .card-face { border-radius: 7px; border-width: 1.5px; }
+  .card-face .card-formula { font-size: 14px; }
+  .card-face .card-name { font-size: 10px; margin-top: 1px; }
+  .card-face .card-type { font-size: 8px; bottom: 2px; }
+  .card-face .card-corner { font-size: 8px; top: 1px; left: 2px; }
+  .card-face .card-state { font-size: 11px; top: 1px; right: 2px; }
+
+  /* === 底部区域：反应统计（左）+ 意见反馈（右）=== */
+
+  /* 反应统计（可拖拽） */
+  #reaction-stats {
+    position: absolute;
+    top: 470px;
+    left: 4px;
+    right: auto;
+    width: 48%;
+    min-width: auto;
+    padding: 4px 6px;
+    font-size: 9px;
+    z-index: 100;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  #reaction-stats .rs-title { font-size: 10px; margin-bottom: 2px; }
+  .rs-row { padding: 1px 0; }
+  .rs-label { font-size: 8px; }
+  .rs-value { font-size: 10px; }
+
+  /* 意见反馈（最右侧，高度减半，靠下，可拖拽） */
+  #feedback-panel {
+    position: absolute;
+    top: 540px;
+    right: 4px;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 48%;
+    max-width: none;
+    padding: 2px 5px;
+    z-index: 500;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  .fb-title { font-size: 8px; margin-bottom: 1px; }
+  #fb-text { height: 16px; font-size: 7px; padding: 2px 4px; }
+  .fb-actions { gap: 2px; margin-top: 1px; }
+  .fb-btn { padding: 2px 4px; font-size: 7px; }
+  .fb-status { font-size: 7px; margin-top: 1px; }
+
+  /* === 其他手机端微调 === */
+  #start-screen h1 { font-size: 24px; }
+  #start-screen .subtitle { font-size: 12px; }
+  .rules-box { max-width: 92%; padding: 10px 12px; font-size: 11px; }
+  #start-btn { padding: 8px 24px; font-size: 14px; }
+  #win-screen h1 { font-size: 26px; }
+  #win-screen .win-text { font-size: 13px; }
+  #restart-btn { padding: 8px 24px; font-size: 14px; }
+  .toast { padding: 6px 10px; font-size: 11px; }
+  .toast .match-reason { font-size: 9px; }
+  #draw-choice-bar { top: 250px !important; bottom: auto !important; left: 50% !important; transform: translateX(-50%) !important; gap: 6px !important; }
+  .draw-choice-btn { padding: 5px 10px !important; font-size: 10px !important; }
+  .fw-center-text { font-size: 18px; }
+}
+/* ============ FEEDBACK PANEL ============ */
+#feedback-panel {
+  position:fixed; bottom:12px; left:12px; z-index:500;
+  background:linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,10,40,0.95));
+  border:1px solid rgba(52,152,219,0.3); border-radius:12px;
+  padding:10px 14px; width:220px; color:#fff;
+  box-shadow:0 4px 20px rgba(0,0,0,0.6);
+  transition: all 0.3s ease;
+}
+#feedback-panel:hover { border-color:rgba(52,152,219,0.6); }
+.fb-title { font-size:12px; font-weight:800; color:#3498db; margin-bottom:6px; }
+#fb-text {
+  width:100%; height:60px; background:rgba(255,255,255,0.08); color:#fff;
+  border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:6px 8px;
+  font-size:11px; resize:none; outline:none;
+  font-family:'Microsoft YaHei','SimHei',sans-serif;
+}
+#fb-text:focus { border-color:rgba(52,152,219,0.5); }
+.fb-actions { display:flex; gap:6px; margin-top:6px; }
+.fb-btn {
+  flex:1; padding:5px 8px; border:none; border-radius:8px; cursor:pointer;
+  font-size:11px; font-weight:700; color:#fff;
+  background:linear-gradient(135deg, #3498db, #2980b9);
+  transition:all 0.2s;
+}
+.fb-btn:hover { transform:scale(1.05); box-shadow:0 2px 8px rgba(52,152,219,0.4); }
+.fb-btn:active { transform:scale(0.95); }
+#fb-voice { background:linear-gradient(135deg, #2ecc71, #27ae60); }
+.fb-status { font-size:10px; color:rgba(255,255,255,0.6); margin-top:4px; text-align:center; min-height:14px; }
+</style>
+</head>
+<body>
+<div id="game-table">
+  <!-- Effects Layer -->
+  <div id="effects-layer"></div>
+
+  <!-- Reaction Stats Panel -->
+  <div id="reaction-stats">
+    <div class="rs-title">📊 反应统计</div>
+    <div class="rs-row"><span class="rs-label">氧化还原</span><span class="rs-value rs-redox" id="rs-redox">0</span></div>
+    <div class="rs-row"><span class="rs-label">沉淀反应</span><span class="rs-value rs-precip" id="rs-precip">0</span></div>
+    <div class="rs-row"><span class="rs-label">气体反应</span><span class="rs-value rs-gas" id="rs-gas">0</span></div>
+    <div class="rs-row"><span class="rs-label">生成水</span><span class="rs-value rs-water" id="rs-water">0</span></div>
+    <div class="rs-row"><span class="rs-label">配合反应</span><span class="rs-value rs-complex" id="rs-complex">0</span></div>
+  </div>
+
+  <!-- Fireworks Layer -->
+  <div id="fireworks-layer"></div>
+
+  <!-- Play History Panel -->
+  <div id="play-history">
+    <div class="ph-title">📋 出牌记录</div>
+    <div id="ph-list"><div class="ph-empty">等待开始...</div></div>
+  </div>
+
+  <!-- Center play area -->
+  <div id="center-area">
+    <div id="play-pile">
+      <span id="last-play-label">出牌区</span>
+      <div id="last-card"></div>
+    </div>
+    <div id="draw-pile" onclick="game.drawFromPile()">
+      <span id="draw-label">摸牌堆</span>
+      <div class="pile-stack">
+        <div class="card"><div class="card-back"></div></div>
+        <div class="card"><div class="card-back"></div></div>
+        <div class="card"><div class="card-back"></div></div>
+      </div>
+      <span id="draw-count">剩余: 0</span>
+    </div>
+    <!-- Skip turn button -->
+    <button id="skip-turn-btn" onclick="game.skipTurn()" disabled>⏭️ 跳过</button>
+  </div>
+
+  <!-- Player bottom (human) -->
+  <div id="player-bottom" class="player-area">
+    <div class="player-info" id="info-0">
+      <div class="player-avatar">🧑</div>
+      <span>你</span>
+      <div class="player-card-count" id="count-0">5张</div>
+      <div class="player-card-count" id="errors-0" style="color:#ff6b6b;display:none">❌ 0/3</div>
+    </div>
+    <div class="hand" id="hand-0"></div>
+  </div>
+
+  <!-- Player top (AI) -->
+  <div id="player-top" class="player-area">
+    <div class="hand" id="hand-1"></div>
+    <div class="player-info" id="info-1">
+      <div class="player-avatar">🤖</div>
+      <span>AI</span>
+      <div class="player-card-count" id="count-1">5张</div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Feedback Panel -->
+  <div id="feedback-panel">
+    <div class="fb-title">💬 意见反馈</div>
+    <textarea id="fb-text" placeholder="输入您的意见或建议..."></textarea>
+    <div class="fb-actions">
+      <button id="fb-submit-text" class="fb-btn">📝 提交文字</button>
+      <button id="fb-voice" class="fb-btn">🎙️ 语音输入</button>
+    </div>
+    <div id="fb-status" class="fb-status"></div>
+  </div>
+</div>
+
+<!-- Start Screen -->
+<div id="start-screen">
+  <h1>⚗️ 化学<span>纸牌</span>大战</h1>
+  <p class="subtitle">Chemistry Card Game - 类UNO规则化学主题卡牌</p>
+  <div class="rules-box">
+    <h3>📖 游戏规则</h3>
+    🎴 每人发5张化学物质卡牌，轮流出牌<br>
+    🔗 <b>出牌条件：两种物质必须能发生真实化学反应！</b><br>
+    &nbsp;&nbsp;• <b>无提示模式</b>：不标记可出牌，需要自己判断！<br>
+    &nbsp;&nbsp;• <b>出牌错误</b>：跳过本轮，累计<b>3次错误直接判负</b><br>
+    &nbsp;&nbsp;• 反应类型：复分解(酸+碱/碳酸盐/金属氧化物)、置换(酸+金属/金属+盐)、化合(金属/非金属+O₂)、氧化还原等<br>
+
+    📥 无法出牌时点击摸牌堆自动摸牌<br>
+    🏆 最先出完所有手牌者获胜！
+  </div>
+  <button id="start-btn" onclick="game.start()">开始游戏</button>
+</div>
+
+<!-- Win Screen -->
+<div id="win-screen">
+  <h1 id="win-title"></h1>
+  <p class="win-text" id="win-text"></p>
+  <button id="restart-btn" onclick="location.reload()">再来一局</button>
+</div>
+
+<script>
+// ========== 化学方程式库 — 基于初中/高中/大学化学课程标准 ==========
+// 所有反应规则均来自真实化学方程式，不含"相同性质"关联
+
+const ELEMENTS = [
+  { id:'H', name:'氢', formula:'H', type:'element', category:'nonmetal', elements:['H'], state:'gas', emoji:'💨' },
+  { id:'O', name:'氧', formula:'O₂', type:'element', category:'nonmetal', elements:['O'], state:'gas', emoji:'💨' },
+  { id:'N', name:'氮', formula:'N₂', type:'element', category:'nonmetal', elements:['N'], state:'gas', emoji:'💨' },
+  { id:'C', name:'碳', formula:'C', type:'element', category:'nonmetal', elements:['C'], state:'solid', emoji:'🪨' },
+  { id:'S', name:'硫', formula:'S', type:'element', category:'nonmetal', elements:['S'], state:'solid', emoji:'🪨' },
+  { id:'Cl', name:'氯', formula:'Cl₂', type:'element', category:'halogen', elements:['Cl'], state:'gas', emoji:'💨' },
+  { id:'F', name:'氟', formula:'F₂', type:'element', category:'halogen', elements:['F'], state:'gas', emoji:'💨' },
+  { id:'Br', name:'溴', formula:'Br₂', type:'element', category:'halogen', elements:['Br'], state:'liquid', emoji:'💧' },
+  { id:'I', name:'碘', formula:'I₂', type:'element', category:'halogen', elements:['I'], state:'solid', emoji:'🪨' },
+  { id:'Na', name:'钠', formula:'Na', type:'element', category:'alkali-metal', elements:['Na'], state:'solid', emoji:'⚙️' },
+  { id:'K', name:'钾', formula:'K', type:'element', category:'alkali-metal', elements:['K'], state:'solid', emoji:'⚙️' },
+  { id:'Ca', name:'钙', formula:'Ca', type:'element', category:'alkaline-earth', elements:['Ca'], state:'solid', emoji:'⚙️' },
+  { id:'Mg', name:'镁', formula:'Mg', type:'element', category:'alkaline-earth', elements:['Mg'], state:'solid', emoji:'⚙️' },
+  { id:'Al', name:'铝', formula:'Al', type:'element', category:'transition-metal', elements:['Al'], state:'solid', emoji:'⚙️' },
+  { id:'Fe', name:'铁', formula:'Fe', type:'element', category:'transition-metal', elements:['Fe'], state:'solid', emoji:'⚙️' },
+  { id:'Cu', name:'铜', formula:'Cu', type:'element', category:'transition-metal', elements:['Cu'], state:'solid', emoji:'⚙️' },
+  { id:'Zn', name:'锌', formula:'Zn', type:'element', category:'transition-metal', elements:['Zn'], state:'solid', emoji:'⚙️' },
+  { id:'Ag', name:'银', formula:'Ag', type:'element', category:'transition-metal', elements:['Ag'], state:'solid', emoji:'⚙️' },
+  { id:'Ba', name:'钡', formula:'Ba', type:'element', category:'alkaline-earth', elements:['Ba'], state:'solid', emoji:'⚙️' },
+  { id:'Mn', name:'锰', formula:'Mn', type:'element', category:'transition-metal', elements:['Mn'], state:'solid', emoji:'⚙️' },
+
+  { id:'P', name:'磷', formula:'P', type:'element', category:'nonmetal', elements:['P'], state:'solid', emoji:'🪨' },
+  { id:'Si', name:'硅', formula:'Si', type:'element', category:'nonmetal', elements:['Si'], state:'solid', emoji:'🪨' },
+];
+
+const COMPOUNDS = [
+  // === 酸 ===
+  { id:'HCl', name:'盐酸', formula:'HCl', type:'compound', category:'acid', elements:['H','Cl'], state:'liquid', emoji:'🧪' },
+  { id:'H2SO4', name:'硫酸', formula:'H₂SO₄', type:'compound', category:'acid', elements:['H','S','O'], state:'liquid', emoji:'🧪' },
+  { id:'HNO3', name:'硝酸', formula:'HNO₃', type:'compound', category:'acid', elements:['H','N','O'], state:'liquid', emoji:'🧪' },
+  { id:'H2S', name:'硫化氢', formula:'H₂S', type:'compound', category:'acid', elements:['H','S'], state:'gas', emoji:'💨' },
+  { id:'H2CO3', name:'碳酸', formula:'H₂CO₃', type:'compound', category:'acid', elements:['H','C','O'], state:'liquid', emoji:'🧪' },
+  { id:'HF', name:'氢氟酸', formula:'HF', type:'compound', category:'acid', elements:['H','F'], state:'liquid', emoji:'🧪' },
+  { id:'HClO', name:'次氯酸', formula:'HClO', type:'compound', category:'acid', elements:['H','Cl','O'], state:'liquid', emoji:'🧪' },
+  // === 碱 ===
+  { id:'NaOH', name:'氢氧化钠', formula:'NaOH', type:'compound', category:'base', elements:['Na','O','H'], state:'solid', emoji:'🧪' },
+  { id:'CaOH2', name:'氢氧化钙', formula:'Ca(OH)₂', type:'compound', category:'base', elements:['Ca','O','H'], state:'solid', emoji:'🧪' },
+  { id:'NH3', name:'氨气', formula:'NH₃', type:'compound', category:'base', elements:['N','H'], state:'gas', emoji:'💨' },
+  // === 盐 ===
+  { id:'NaCl', name:'氯化钠', formula:'NaCl', type:'compound', category:'salt', elements:['Na','Cl'], state:'solid', emoji:'🧂' },
+  { id:'Na2CO3', name:'碳酸钠', formula:'Na₂CO₃', type:'compound', category:'salt', elements:['Na','C','O'], state:'solid', emoji:'🧂' },
+  { id:'CaCO3', name:'碳酸钙', formula:'CaCO₃', type:'compound', category:'salt', elements:['Ca','C','O'], state:'solid', emoji:'🪨' },
+  { id:'CuSO4', name:'硫酸铜', formula:'CuSO₄', type:'compound', category:'salt', elements:['Cu','S','O'], state:'solid', emoji:'🧪' },
+  { id:'FeCl3', name:'氯化铁', formula:'FeCl₃', type:'compound', category:'salt', elements:['Fe','Cl'], state:'solid', emoji:'🧪' },
+  { id:'FeCl2', name:'氯化亚铁', formula:'FeCl₂', type:'compound', category:'salt', elements:['Fe','Cl'], state:'solid', emoji:'🧪' },
+  { id:'FeSO4', name:'硫酸亚铁', formula:'FeSO₄', type:'compound', category:'salt', elements:['Fe','S','O'], state:'solid', emoji:'🧪' },
+  { id:'AgNO3', name:'硝酸银', formula:'AgNO₃', type:'compound', category:'salt', elements:['Ag','N','O'], state:'solid', emoji:'🧪' },
+  { id:'BaCl2', name:'氯化钡', formula:'BaCl₂', type:'compound', category:'salt', elements:['Ba','Cl'], state:'solid', emoji:'🧪' },
+  { id:'Na2S', name:'硫化钠', formula:'Na₂S', type:'compound', category:'salt', elements:['Na','S'], state:'solid', emoji:'🧪' },
+  { id:'KMnO4', name:'高锰酸钾', formula:'KMnO₄', type:'compound', category:'salt', elements:['K','Mn','O'], state:'solid', emoji:'🧪' },
+  { id:'K2Cr2O7', name:'重铬酸钾', formula:'K₂Cr₂O₇', type:'compound', category:'salt', elements:['K','Cr','O'], state:'solid', emoji:'🧪' },
+  { id:'NaClO', name:'次氯酸钠', formula:'NaClO', type:'compound', category:'salt', elements:['Na','Cl','O'], state:'solid', emoji:'🧪' },
+  { id:'CaCl2', name:'氯化钙', formula:'CaCl₂', type:'compound', category:'salt', elements:['Ca','Cl'], state:'solid', emoji:'🧪' },
+  { id:'MgCl2', name:'氯化镁', formula:'MgCl₂', type:'compound', category:'salt', elements:['Mg','Cl'], state:'solid', emoji:'🧪' },
+  { id:'CuCl2', name:'氯化铜', formula:'CuCl₂', type:'compound', category:'salt', elements:['Cu','Cl'], state:'solid', emoji:'🧪' },
+  { id:'ZnCl2', name:'氯化锌', formula:'ZnCl₂', type:'compound', category:'salt', elements:['Zn','Cl'], state:'solid', emoji:'🧪' },
+  { id:'Na2SO3', name:'亚硫酸钠', formula:'Na₂SO₃', type:'compound', category:'salt', elements:['Na','S','O'], state:'solid', emoji:'🧪' },
+  { id:'Na2SO4', name:'硫酸钠', formula:'Na₂SO₄', type:'compound', category:'salt', elements:['Na','S','O'], state:'solid', emoji:'🧪' },
+  { id:'NH4Cl', name:'氯化铵', formula:'NH₄Cl', type:'compound', category:'salt', elements:['N','H','Cl'], state:'solid', emoji:'🧪' },
+  { id:'AlCl3', name:'氯化铝', formula:'AlCl₃', type:'compound', category:'salt', elements:['Al','Cl'], state:'solid', emoji:'🧪' },
+  { id:'NaAlO2', name:'四羟基合铝酸钠', formula:'Na[Al(OH)₄]', type:'compound', category:'salt', elements:['Na','Al','O','H'], state:'solid', emoji:'🧪' },
+  { id:'Na2SiO3', name:'硅酸钠', formula:'Na₂SiO₃', type:'compound', category:'salt', elements:['Na','Si','O'], state:'solid', emoji:'🧪' },
+  { id:'MnSO4', name:'硫酸锰', formula:'MnSO₄', type:'compound', category:'salt', elements:['Mn','S','O'], state:'solid', emoji:'🧪' },
+  { id:'AgCl', name:'氯化银', formula:'AgCl', type:'compound', category:'salt', elements:['Ag','Cl'], state:'solid', emoji:'🧂' },
+  { id:'BaSO4', name:'硫酸钡', formula:'BaSO₄', type:'compound', category:'salt', elements:['Ba','S','O'], state:'solid', emoji:'🪨' },
+  { id:'CaSO4', name:'硫酸钙', formula:'CaSO₄', type:'compound', category:'salt', elements:['Ca','S','O'], state:'solid', emoji:'🪨' },
+  // === 氧化物 ===
+  { id:'H2O', name:'水', formula:'H₂O', type:'compound', category:'oxide', elements:['H','O'], state:'liquid', emoji:'💧' },
+  { id:'CO2', name:'二氧化碳', formula:'CO₂', type:'compound', category:'oxide', elements:['C','O'], state:'gas', emoji:'💨' },
+  { id:'SO2', name:'二氧化硫', formula:'SO₂', type:'compound', category:'oxide', elements:['S','O'], state:'gas', emoji:'💨' },
+  { id:'CaO', name:'氧化钙', formula:'CaO', type:'compound', category:'oxide', elements:['Ca','O'], state:'solid', emoji:'🪨' },
+  { id:'Fe2O3', name:'氧化铁', formula:'Fe₂O₃', type:'compound', category:'oxide', elements:['Fe','O'], state:'solid', emoji:'🪨' },
+  { id:'Al2O3', name:'氧化铝', formula:'Al₂O₃', type:'compound', category:'oxide', elements:['Al','O'], state:'solid', emoji:'🪨' },
+  { id:'CuO', name:'氧化铜', formula:'CuO', type:'compound', category:'oxide', elements:['Cu','O'], state:'solid', emoji:'🪨' },
+  { id:'MnO2', name:'二氧化锰', formula:'MnO₂', type:'compound', category:'oxide', elements:['Mn','O'], state:'solid', emoji:'🪨' },
+  { id:'H2O2', name:'过氧化氢', formula:'H₂O₂', type:'compound', category:'oxide', elements:['H','O'], state:'liquid', emoji:'🧪' },
+  { id:'CO', name:'一氧化碳', formula:'CO', type:'compound', category:'oxide', elements:['C','O'], state:'gas', emoji:'💨' },
+  { id:'NO', name:'一氧化氮', formula:'NO', type:'compound', category:'oxide', elements:['N','O'], state:'gas', emoji:'💨' },
+  { id:'NO2', name:'二氧化氮', formula:'NO₂', type:'compound', category:'oxide', elements:['N','O'], state:'gas', emoji:'💨' },
+  { id:'SO3', name:'三氧化硫', formula:'SO₃', type:'compound', category:'oxide', elements:['S','O'], state:'solid', emoji:'🪨' },
+  { id:'SiO2', name:'二氧化硅', formula:'SiO₂', type:'compound', category:'oxide', elements:['Si','O'], state:'solid', emoji:'🪨' },
+  { id:'Na2O', name:'氧化钠', formula:'Na₂O', type:'compound', category:'oxide', elements:['Na','O'], state:'solid', emoji:'🪨' },
+  { id:'Na2O2', name:'过氧化钠', formula:'Na₂O₂', type:'compound', category:'oxide', elements:['Na','O'], state:'solid', emoji:'🪨' },
+  { id:'Cu2O', name:'氧化亚铜', formula:'Cu₂O', type:'compound', category:'oxide', elements:['Cu','O'], state:'solid', emoji:'🪨' },
+
+];
+
+// SPECIALS removed - no special cards
+
+const CATEGORY_NAMES = {
+  'alkali-metal':'碱金属', 'alkaline-earth':'碱土金属', 'transition-metal':'过渡金属',
+  'nonmetal':'非金属', 'halogen':'卤素', 'acid':'酸', 'base':'碱', 'salt':'盐',
+  'oxide':'氧化物'
+};
+
+// ========== 精确化学反应库 ==========
+// 每条规则代表一类真实存在的化学反应（含具体方程式）
+// twoTags: [物质A的标签集, 物质B的标签集] — 双向匹配
+// excludeTags: 排除条件 — 如果任一物质含排除标签则不能出牌
+// 50+类化学反应，覆盖初中/高中/大学主要反应
+
+// ========== 热力学数据库（反应判断依据） ==========
+const THERMO_DATA = {
+  // 标准电极电势 E°(V) @ 298K, 酸性条件
+  // 数据来源：标准电极电势表（IUPAC/大学无机化学）
+  standardPotentials: {
+    'Li+/Li': -3.04, 'K+/K': -2.93, 'Na+/Na': -2.71, 'Mg2+/Mg': -2.37,
+    'Al3+/Al': -1.66, 'Zn2+/Zn': -0.76, 'Fe2+/Fe': -0.45, 'Sn2+/Sn': -0.14,
+    'Pb2+/Pb': -0.13, '2H+/H2': 0.00, 'Cu2+/Cu+': 0.15, 'Cu2+/Cu': 0.34,
+    'I2/I-': 0.54, 'Fe3+/Fe2+': 0.77, 'Hg2+/Hg': 0.85, 'Ag+/Ag': 0.80,
+    'Hg22+/Hg': 0.80, 'NO3-/NO': 0.96, 'Br2/Br-': 1.09, 'O2/H2O': 1.23,
+    'Cr2O72-/Cr3+': 1.33, 'Cl2/Cl-': 1.36, 'MnO4-/Mn2+': 1.51,
+    'PbO2/Pb2+': 1.46, 'H2O2/H2O': 1.78, 'F2/F-': 2.87,
+    // Cu2O相关：Cu2O在酸性条件下先溶解为Cu+，Cu+可被强氧化剂氧化为Cu2+
+    // Cu+ → Cu2+ + e- 的逆反应 E° = 0.153V，故氧化电势 ≈ 0.153V
+    'Cu+/Cu2+': -0.15, // 氧化方向
+  },
+  // 溶度积常数 Ksp @ 298K
+  ksp: {
+    'AgCl': 1.8e-10, 'AgBr': 5.0e-13, 'AgI': 8.3e-17, 'Ag2S': 6e-51,
+    'BaSO4': 1.1e-10, 'CaCO3': 2.8e-9, 'CaSO4': 4.9e-5,
+    'CuS': 6e-36, 'FeS': 6e-18, 'PbS': 3e-28, 'ZnS': 2e-24,
+    'Fe(OH)3': 2.8e-39, 'Cu(OH)2': 2.2e-20, 'Mg(OH)2': 5.6e-12,
+  },
+  // 酸解离常数 pKa @ 298K
+  pKa: {
+    'HCl': -7, 'H2SO4_1': -3, 'H2SO4_2': 1.92, 'HNO3': -1.4,
+    'HF': 3.18, 'H2CO3_1': 6.35, 'H2CO3_2': 10.33,
+    'H2S_1': 7.0, 'H2S_2': 12.9, 'HClO': 7.53, 'NH4+': 9.25,
+    'H2O': 15.7,
+  },
+  // 配合物稳定常数 log β @ 298K
+  complexStability: {
+    '[Ag(NH3)2]+': 7.05, '[Cu(NH3)4]2+': 12.6,
+    '[Fe(CN)6]3-': 31, '[Fe(CN)6]4-': 24,
+  },
+  // 反应判据工具函数
+  canRedox(oxidizerE, reducerE) {
+    // E°(氧化剂) > E°(还原剂) 时反应自发
+    return oxidizerE > reducerE + 0.1; // 0.1V 为经验阈值
+  },
+  canPrecipitate(ksp, ionProduct) {
+    return ionProduct > ksp;
+  },
+};
+const REACTION_RULES = [
+  // === 复分解反应 ===
+  { tA:['acid'], tB:['base'], eq:'HCl+NaOH→NaCl+H₂O', name:'中和反应', emoji:'🧪' },
+  { tA:['acid'], tB:['carbonate'], eq:'2HCl+CaCO₃→CaCl₂+H₂O+CO₂↑', name:'酸与碳酸盐反应', emoji:'🧪' },
+  { tA:['acid'], tB:['metal-oxide'], eq:'HCl+CuO→CuCl₂+H₂O', name:'酸与金属氧化物反应', emoji:'🧪' },
+  { tA:['acid'], tB:['amphoteric-oxide'], eq:'Al₂O₃+6HCl→2AlCl₃+3H₂O', name:'酸与两性氧化物反应', emoji:'🧪' },
+  { tA:['base'], tB:['acidic-oxide'], eq:'2NaOH+CO₂→Na₂CO₃+H₂O', name:'碱与酸性氧化物反应', emoji:'🫧' },
+  { tA:['base'], tB:['amphoteric-oxide'], eq:'Al₂O₃+2NaOH+3H₂O→2Na[Al(OH)₄]', name:'碱与两性氧化物反应', emoji:'🫧' },
+  { tA:['basic-oxide'], tB:['acid'], eq:'CaO+2HCl→CaCl₂+H₂O', name:'碱性氧化物与酸反应', emoji:'🧪' },
+  { tA:['basic-oxide'], tB:['acidic-oxide'], eq:'CaO+CO₂→CaCO₃', name:'碱性氧化物与酸性氧化物反应', emoji:'🧪' },
+  { tA:['ag-salt'], tB:['cl-salt'], eq:'AgNO₃+NaCl→AgCl↓+NaNO₃', name:'生成AgCl沉淀反应', emoji:'💥' },
+  { tA:['ba-salt'], tB:['sulfate'], eq:'BaCl₂+Na₂SO₄→BaSO₄↓+2NaCl', name:'生成BaSO₄沉淀反应', emoji:'💥' },
+  { tA:['ca-salt'], tB:['carbonate'], eq:'CaCl₂+Na₂CO₃→CaCO₃↓+2NaCl', name:'生成CaCO₃沉淀反应', emoji:'💥' },
+  { tA:['ca-salt'], tB:['so4-source'], eq:'CaO+Na₂SO₄+H₂O→CaSO₄↓(微溶)+2NaOH', name:'生成CaSO₄微溶物反应', emoji:'💥', thermo:'Ksp(CaSO₄)=4.9×10⁻⁵，微溶' },
+  { tA:['base'], tB:['so4-source'], eq:'Ca(OH)₂+Na₂SO₄→CaSO₄↓(微溶)+2NaOH', name:'碱与硫酸盐反应(微溶)', emoji:'💥', thermo:'Ksp(CaSO₄)=4.9×10⁻⁵' },
+  { tA:['fe3-salt'], tB:['base'], eq:'FeCl₃+3NaOH→Fe(OH)₃↓+3NaCl', name:'Fe³⁺与碱生成沉淀', emoji:'💥' },
+  { tA:['fe2-salt'], tB:['base'], eq:'FeSO₄+2NaOH→Fe(OH)₂↓+Na₂SO₄', name:'Fe²⁺与碱生成沉淀', emoji:'💥' },
+  { tA:['cu-salt'], tB:['base'], eq:'CuSO₄+2NaOH→Cu(OH)₂↓+Na₂SO₄', name:'Cu²⁺与碱生成沉淀', emoji:'💥' },
+  { tA:['mg2-salt'], tB:['base'], eq:'MgCl₂+2NaOH→Mg(OH)₂↓+2NaCl', name:'Mg²⁺与碱生成沉淀', emoji:'💥', thermo:'Ksp(Mg(OH)₂)=5.6×10⁻¹²' },
+  { tA:['acid'], tB:['sulfite'], eq:'2HCl+Na₂SO₃→2NaCl+H₂O+SO₂↑', name:'酸与亚硫酸盐反应', emoji:'🧪' },
+  { tA:['acid'], tB:['silicate'], eq:'2HCl+Na₂SiO₃→2NaCl+H₂SiO₃↓', name:'酸与硅酸盐反应', emoji:'🧪' },
+  // === 置换反应 ===
+  { tA:['acid'], tB:['active-metal'], eq:'Zn+H₂SO₄→ZnSO₄+H₂↑', name:'酸与活泼金属反应', emoji:'⚗️' },
+  { tA:['active-metal'], tB:['salt'], eq:'Zn+CuSO₄→ZnSO₄+Cu', name:'活泼金属置换反应', emoji:'♻️', excludeTags:['insoluble-salt','slightly-soluble-salt','alkali-cation','al-salt'] },
+  // === 基于金属活动顺序：Cu > Ag，Cu可置换Ag⁺ ===
+  { tA:['metal'], tB:['ag-salt'], eq:'Cu+2AgNO₃→Cu(NO₃)₂+2Ag', name:'金属置换Ag⁺反应', emoji:'♻️', thermo:'E°(Cu²⁺/Cu)=0.34V > E°(Ag⁺/Ag)=0.80V 逆向自发' },
+  { tA:['active-metal'], tB:['water'], eq:'2Na+2H₂O→2NaOH+H₂↑', name:'活泼金属与水的反应', emoji:'💧' },
+  { tA:['medium-active-metal'], tB:['non-oxidizing-acid'], eq:'Fe+2HCl→FeCl₂+H₂↑', name:'中等活泼金属与非氧化性酸反应', emoji:'⚗️' },
+  { tA:['medium-active-metal'], tB:['salt'], eq:'Fe+CuSO₄→FeSO₄+Cu', name:'金属置换反应(Fe等)', emoji:'♻️', excludeTags:['insoluble-salt','slightly-soluble-salt','alkali-cation','al-salt'] },
+  { tA:['very-active-metal'], tB:['water'], eq:'2Na+2H₂O→2NaOH+H₂↑', name:'极活泼金属与水的反应', emoji:'💧' },
+  { tA:['active-metal'], tB:['acidic-oxide-rx'], eq:'2Mg+CO₂→2MgO+C', name:'活泼金属还原CO₂', emoji:'🔥' },
+  // === 化合反应 ===
+  { tA:['metal'], tB:['halogen'], eq:'2Fe+3Cl₂→2FeCl₃', name:'金属与卤素化合', emoji:'⚙️' },
+  { tA:['metal'], tB:['nonmetal'], eq:'Fe+S→FeS', name:'金属与非金属化合', emoji:'⚡' },
+  { tA:['metal'], tB:['oxygen'], eq:'3Fe+2O₂→Fe₃O₄', name:'金属与氧气化合', emoji:'🔥' },
+  { tA:['nonmetal'], tB:['oxygen'], eq:'S+O₂→SO₂', name:'非金属与氧气化合', emoji:'🔥' },
+  { tA:['alkali-metal'], tB:['oxygen'], eq:'4Na+O₂→2Na₂O', name:'碱金属与氧气化合', emoji:'🔥' },
+  { tA:['alkali-metal'], tB:['halogen'], eq:'2Na+Cl₂→2NaCl', name:'碱金属与卤素化合', emoji:'⚙️' },
+  { tA:['hydrogen'], tB:['halogen'], eq:'H₂+Cl₂→2HCl', name:'氢气与卤素化合', emoji:'⚙️' },
+  // === NO专属反应 ===
+  { tA:['no-oxidation'], tB:['oxygen'], eq:'2NO+O₂→2NO₂', name:'NO与氧气反应', emoji:'🔥' },
+  // === 氧化还原反应 ===
+  { tA:['oxidizing'], tB:['reducing'], eq:'2FeCl₃+H₂S→2FeCl₂+S↓+2HCl', name:'氧化还原反应', emoji:'⚡', excludeTags:['no-oxidation'] },
+  // === 基于电极电势：E°(Fe³⁺/Fe²⁺)=0.77V > E°(Zn²⁺/Zn)=-0.76V，反应自发 ===
+  { tA:['fe3-salt'], tB:['zn-metal'], eq:'2FeCl₃+Zn→2FeCl₂+ZnCl₂', name:'Fe³⁺氧化Zn', emoji:'⚡', thermo:'E°(Fe³⁺/Fe²⁺)=0.77V >> E°(Zn²⁺/Zn)=-0.76V' },
+  // === 基于电极电势：E°(ClO⁻/Cl⁻)≈0.89V >> E°(Zn²⁺/Zn)=-0.76V，反应自发 ===
+  { tA:['oxidizing'], tB:['active-metal'], eq:'Zn+NaClO+H₂O→Zn(OH)₂↓+NaCl', name:'次氯酸盐氧化活泼金属', emoji:'⚡', thermo:'E°(ClO⁻/Cl⁻)=0.89V >> E°(Zn²⁺/Zn)=-0.76V' },
+  { tA:['oxygen'], tB:['flammable'], eq:'2H₂S+3O₂→2SO₂+2H₂O', name:'燃烧反应', emoji:'🔥', thermo:'E°(O₂/H₂O)=1.23V > E°(S/H₂S)=0.14V' },
+  { tA:['reducing'], tB:['metal-oxide'], eq:'CO+Fe₂O₃→Fe+CO₂', name:'还原金属氧化物', emoji:'🔥' },
+  { tA:['strong-oxidizer'], tB:['reducing'], eq:'2KMnO₄+16HCl→2MnCl₂+2KCl+5Cl₂↑+8H₂O', name:'强氧化剂与还原剂反应', emoji:'⚡', excludeTags:['no-oxidation'] },
+  { tA:['strong-oxidizer'], tB:['oxidizable'], eq:'2KMnO₄+16HCl→2MnCl₂+2KCl+5Cl₂↑+8H₂O', name:'强氧化剂氧化反应', emoji:'⚡' },
+  { tA:['strong-oxidizer'], tB:['acid-reducing'], eq:'2KMnO₄+5H₂S+3H₂SO₄→K₂SO₄+2MnSO₄+5S↓+8H₂O', name:'强氧化剂与还原性酸反应', emoji:'⚡' },
+  { tA:['strong-oxidizer'], tB:['fe2-salt'], eq:'MnO₄⁻+5Fe²⁺+8H⁺→Mn²⁺+5Fe³⁺+4H₂O', name:'强氧化剂氧化Fe²⁺', emoji:'⚡' },
+  { tA:['oxidizing-acid'], tB:['metal'], eq:'Zn+4HNO₃(浓)→Zn(NO₃)₂+2NO₂↑+2H₂O', name:'氧化性酸与金属反应', emoji:'⚡' },
+  { tA:['oxidizing-acid'], tB:['reducing'], eq:'H₂S+H₂SO₄(浓)→S↓+SO₂↑+2H₂O', name:'氧化性酸与还原剂反应', emoji:'⚡', excludeTags:['no-oxidation'] },
+
+  { tA:['oxidizing'], tB:['sulfide'], eq:'SO₂+2H₂S→3S↓+2H₂O', name:'SO₂氧化H₂S', emoji:'⚡' },
+  { tA:['chlorate'], tB:['reducing'], eq:'KClO₃+6HCl→KCl+3Cl₂↑+3H₂O', name:'氯酸盐与还原剂反应', emoji:'⚡', excludeTags:['no-oxidation'] },
+  { tA:['dichromate'], tB:['reducing'], eq:'Cr₂O₇²⁻+3SO₃²⁻+8H⁺→2Cr³⁺+3SO₄²⁻+4H₂O', name:'重铬酸根氧化还原剂', emoji:'⚡', excludeTags:['no-oxidation'] },
+  { tA:['dichromate'], tB:['fe2-salt'], eq:'Cr₂O₇²⁻+6Fe²⁺+14H⁺→2Cr³⁺+6Fe³⁺+7H₂O', name:'重铬酸根氧化Fe²⁺', emoji:'⚡' },
+  { tA:['mno2-oxidizer'], tB:['reducing'], eq:'MnO₂+4HCl→MnCl₂+Cl₂↑+2H₂O', name:'MnO₂氧化还原剂', emoji:'⚡', excludeTags:['no-oxidation'] },
+
+  // === 基于电极电势的反应（Cu2O中Cu+可被强氧化剂氧化）===
+  // E°(Cr2O7^2-/Cr3+)=1.33V >> E°(Cu2+/Cu+)=0.15V，ΔE≈1.18V，反应自发
+  { tA:['dichromate'], tB:['cu1-oxide'], eq:'3Cu₂O+Cr₂O₇²⁻+14H⁺→6Cu²⁺+2Cr³⁺+7H₂O', name:'重铬酸根氧化Cu₂O', emoji:'⚡', thermo:'E°(Cr₂O₇²⁻/Cr³⁺)=1.33V >> E°(Cu²⁺/Cu⁺)=0.15V' },
+  { tA:['dichromate'], tB:['cl-salt'], eq:'K₂Cr₂O₇+14HCl→2CrCl₃+3Cl₂↑+2KCl+7H₂O', name:'重铬酸钾氧化Cl⁻', emoji:'⚡', thermo:'E°(Cr₂O₇²⁻/Cr³⁺)=1.33V > E°(Cl₂/Cl⁻)=1.36V(逆)' },
+  { tA:['mno2-oxidizer'], tB:['cu1-oxide'], eq:'Cu₂O+MnO₂+4H⁺→Cu²⁺+Mn²⁺+2H₂O', name:'MnO₂氧化Cu₂O', emoji:'⚡', thermo:'E°(MnO₂/Mn²⁺)=1.22V > E°(Cu²⁺/Cu⁺)=0.15V' },
+  { tA:['strong-oxidizer'], tB:['cu1-oxide'], eq:'5Cu₂O+2MnO₄⁻+18H⁺→10Cu²⁺+2Mn²⁺+9H₂O', name:'强氧化剂氧化Cu₂O', emoji:'⚡', thermo:'E°(MnO₄⁻/Mn²⁺)=1.51V >> E°(Cu²⁺/Cu⁺)=0.15V' },
+  // === 非金属与碱反应(歧化) ===
+  { tA:['active-nonmetal'], tB:['base'], eq:'Cl₂+2NaOH→NaCl+NaClO+H₂O', name:'非金属与碱歧化反应', emoji:'💥' },
+  // === 两性氧化物/氢氧化物反应 ===
+  { tA:['amphoteric-oxide'], tB:['acid'], eq:'Al₂O₃+6HCl→2AlCl₃+3H₂O', name:'两性氧化物与酸反应', emoji:'🧪' },
+  { tA:['amphoteric-oxide'], tB:['base'], eq:'Al₂O₃+2NaOH+3H₂O→2Na[Al(OH)₄]', name:'两性氧化物与碱反应', emoji:'🫧' },
+  { tA:['reactive-amphoteric-metal'], tB:['base'], eq:'2Al+2NaOH+6H₂O→2Na[Al(OH)₄]+3H₂↑', name:'两性金属与碱反应', emoji:'⚗️' },
+  { tA:['reactive-amphoteric-metal'], tB:['acid'], eq:'Zn+2HCl→ZnCl₂+H₂↑', name:'两性金属与酸反应', emoji:'⚗️' },
+  // === 氧化物与水反应 ===
+  { tA:['basic-oxide-rx'], tB:['water'], eq:'CaO+H₂O→Ca(OH)₂', name:'碱性氧化物与水反应', emoji:'💧' },
+  { tA:['acidic-oxide-rx'], tB:['water'], eq:'CO₂+H₂O→H₂CO₃', name:'酸性氧化物与水反应', emoji:'💧' },
+  { tA:['acidic-oxide-rx'], tB:['water'], eq:'SO₂+H₂O→H₂SO₃', name:'SO₂与水反应', emoji:'💧' },
+  // === 过氧化物的特殊反应 ===
+  { tA:['peroxide'], tB:['water'], eq:'2Na₂O₂+2H₂O→4NaOH+O₂↑', name:'过氧化物与水反应', emoji:'💧' },
+  { tA:['peroxide'], tB:['acidic-oxide-rx'], eq:'2Na₂O₂+2CO₂→2Na₂CO₃+O₂', name:'过氧化物与CO₂反应', emoji:'🔥' },
+  // === 卤素间的置换 ===
+  { tA:['halogen'], tB:['halide-salt'], eq:'Cl₂+2NaBr→2NaCl+Br₂', name:'卤素置换反应', emoji:'♻️' },
+  // === 硝酸银与卤化物 ===
+  { tA:['ag-salt'], tB:['halide-salt'], eq:'AgNO₃+NaBr→AgBr↓+NaNO₃', name:'Ag⁺与卤化物沉淀', emoji:'💥' },
+  // === 铁盐间的氧化还原 ===
+  { tA:['fe3-salt'], tB:['reducing'], eq:'2FeCl₃+H₂S→2FeCl₂+S↓+2HCl', name:'Fe³⁺氧化还原剂', emoji:'⚡' },
+  { tA:['fe3-salt'], tB:['zn-metal'], eq:'2FeCl₃+Zn→2FeCl₂+ZnCl₂', name:'Fe³⁺氧化Zn', emoji:'⚡', thermo:'E°(Fe³⁺/Fe²⁺)=0.77V >> E°(Zn²⁺/Zn)=-0.76V' },
+  { tA:['fe3-salt'], tB:['cu-metal'], eq:'2FeCl₃+Cu→2FeCl₂+CuCl₂', name:'Fe³⁺氧化Cu', emoji:'⚡', thermo:'E°(Fe³⁺/Fe²⁺)=0.77V > E°(Cu²⁺/Cu)=0.34V' },
+  { tA:['fe2-salt'], tB:['oxidizing'], eq:'2FeCl₂+Cl₂→2FeCl₃', name:'Fe²⁺被氧化为Fe³⁺', emoji:'⚡' },
+  { tA:['fe2-salt'], tB:['halogen'], eq:'2FeCl₂+Cl₂→2FeCl₃', name:'Fe²⁺被卤素氧化', emoji:'⚡' },
+  { tA:['halogen'], tB:['reducing'], eq:'Cl₂+2NaBr→2NaCl+Br₂', name:'卤素置换反应', emoji:'⚡', thermo:'E°(Cl₂/Cl⁻)=1.36V > E°(Br₂/Br⁻)=1.09V', excludeTags:['no-oxidation'] },
+  { tA:['halogen'], tB:['acid-reducing'], eq:'Cl₂+H₂S→2HCl+S↓', name:'卤素氧化H₂S', emoji:'⚡', thermo:'E°(Cl₂/Cl⁻)=1.36V > E°(S/H₂S)=0.14V' },
+  // === 特殊反应 ===
+  { tA:['si-compound'], tB:['hf-acid'], eq:'SiO₂+4HF→SiF₄↑+2H₂O', name:'SiO₂与HF反应', emoji:'🧪' },
+  { tA:['si-element'], tB:['base'], eq:'Si+2NaOH+H₂O→Na₂SiO₃+2H₂↑', name:'硅与碱反应', emoji:'⚗️' },
+
+
+  // === 基于Ksp的硫化物沉淀反应 ===
+  { tA:['cl-salt'], tB:['sulfide-salt'], eq:'ZnCl₂+Na₂S→ZnS↓+2NaCl', name:'硫化物沉淀反应', emoji:'💥', thermo:'Ksp(ZnS)=2×10⁻²⁴ << 10⁻⁵' },
+  { tA:['cu-salt'], tB:['sulfide-salt'], eq:'CuSO₄+Na₂S→CuS↓+Na₂SO₄', name:'硫化物沉淀反应', emoji:'💥', thermo:'Ksp(CuS)=6×10⁻³⁶ << 10⁻⁵' },
+  { tA:['so4-salt'], tB:['sulfide-salt'], eq:'CuSO₄+Na₂S→CuS↓+Na₂SO₄', name:'硫化物沉淀反应', emoji:'💥', thermo:'Ksp(CuS)=6×10⁻³⁶ << 10⁻⁵' },
+  // === 酸性氧化物与四羟基合铝酸钠反应 ===
+  { tA:['acidic-oxide-rx'], tB:['aluminate'], eq:'CO₂+Na[Al(OH)₄]→Al(OH)₃↓+NaHCO₃', name:'酸性氧化物与四羟基合铝酸钠反应', emoji:'💥' },
+  // === 配合反应 ===
+  { tA:['ag-salt'], tB:['complex-agent'], eq:'AgNO₃+2NH₃→[Ag(NH₃)₂]NO₃', name:'银氨配合反应', emoji:'🔮', thermo:'logβ([Ag(NH₃)₂]⁺)=7.05' },
+  { tA:['cu-salt'], tB:['complex-agent'], eq:'CuSO₄+4NH₃→[Cu(NH₃)₄]SO₄', name:'铜氨配合反应', emoji:'🔮', thermo:'logβ([Cu(NH₃)₄]²⁺)=12.6' },
+
+];
+
+// ========== 物质化学标签（基于真实化学性质） ==========
+const CHEM_TAGS = {
+  // 元素标签
+  'H':      ['nonmetal','reducing','flammable','hydrogen'],
+  'O':      ['nonmetal','oxygen','oxidizing'],
+  'N':      ['nonmetal'],
+  'C':      ['nonmetal','reducing'],
+  'S':      ['nonmetal','active-nonmetal','reducing','sulfide'],
+  'Cl':     ['nonmetal','halogen','active-nonmetal','oxidizing'],
+  'F':      ['nonmetal','halogen','active-nonmetal','oxidizing'],
+  'Br':     ['nonmetal','halogen','active-nonmetal','oxidizing'],
+  'I':      ['nonmetal','halogen','reducing','oxidizable'],
+  'Na':     ['metal','active-metal','reducing','alkali-metal','very-active-metal'],
+  'K':      ['metal','active-metal','reducing','alkali-metal','very-active-metal'],
+  'Ca':     ['metal','active-metal','reducing','alkaline-earth'],
+  'Mg':     ['metal','active-metal','reducing','alkaline-earth'],
+  'Al':     ['metal','active-metal','reducing','amphoteric','reactive-amphoteric-metal'],
+  'Fe':     ['metal','medium-active-metal','reducing'],
+  'Cu':     ['metal','reducing','cu-metal'],
+  'Zn':     ['metal','active-metal','reducing','reactive-amphoteric-metal','zn-metal'],
+  'Ag':     ['metal'],
+  'Ba':     ['metal','active-metal','reducing','alkaline-earth'],
+  'Mn':     ['metal','medium-active-metal','reducing'],
+
+  'P':      ['nonmetal','active-nonmetal','reducing'],
+  'Si':     ['nonmetal','reducing','si-element'],
+  // 化合物标签
+  'HCl':    ['acid','non-oxidizing-acid','oxidizable'],
+  'H2SO4':  ['acid','oxidizing','oxidizing-acid','sulfate','so4-source'],
+  'HNO3':   ['acid','oxidizing','oxidizing-acid'],
+  'H2S':    ['acid','reducing','acid-reducing','flammable','sulfide-acid'],
+  'H2CO3':  ['acid','non-oxidizing-acid'],
+  'HF':     ['acid','hf-acid','non-oxidizing-acid'],
+  'HClO':   ['acid','oxidizing'],
+  'NaOH':   ['base'],
+  'CaOH2':  ['base','ca-salt','hydroxide','strong-base'],
+  'NH3':    ['base','reducing','complex-agent'],
+  'NaCl':   ['salt','cl-salt','halide-salt','alkali-cation'],
+  'Na2CO3': ['salt','carbonate','alkali-cation'],
+  'CaCO3':  ['salt','carbonate','insoluble-salt'],
+  'CuSO4':  ['salt','cu-salt','sulfate','cu2-salt','so4-source','soluble-salt'],
+  'FeCl3':  ['salt','oxidizing','fe3-salt'],
+  'FeCl2':  ['salt','fe2-salt','reducing'],
+  'FeSO4':  ['salt','fe2-salt','sulfate','reducing'],
+  'AgNO3':  ['salt','ag-salt'],
+  'BaCl2':  ['salt','cl-salt','ba-salt'],
+  'Na2S':   ['salt','reducing','sulfide','sulfide-salt','sulfide-source','alkali-cation'],
+  'KMnO4':  ['salt','strong-oxidizer'],
+  'K2Cr2O7':['salt','strong-oxidizer','dichromate'],
+  'NaClO':  ['salt','oxidizing','alkali-cation'],
+  'CaCl2':  ['salt','cl-salt','ca-salt'],
+  'MgCl2':  ['salt','cl-salt','mg2-salt'],
+  'CuCl2':  ['salt','cl-salt','cu-salt','cu2-salt'],
+  'ZnCl2':  ['salt','cl-salt','zn-salt'],
+  'Na2SO3': ['salt','sulfite','reducing','alkali-cation'],
+  'Na2SO4': ['salt','sulfate','so4-source','alkali-cation'],
+  'NH4Cl':  ['salt','volatile-salt','alkali-cation'],
+  'AlCl3':  ['salt','al-salt'],
+  'NaAlO2': ['salt','alkali-cation','aluminate'],
+  'Na2SiO3': ['salt','silicate','alkali-cation'],
+  'MnSO4':  ['salt','mn2-salt','sulfate'],
+  'AgCl':   ['salt','cl-salt','halide-salt','insoluble-salt'],
+  'BaSO4':  ['salt','sulfate','insoluble-salt'],
+  'CaSO4':  ['salt','sulfate','ca-salt','slightly-soluble-salt'],
+
+  'H2O':    ['water'],
+  'CO2':    ['acidic-oxide','acidic-oxide-rx'],
+  'SO2':    ['acidic-oxide','acidic-oxide-rx','reducing','oxidizing'],
+  'CaO':    ['basic-oxide','basic-oxide-rx','metal-oxide','ca-salt'],
+  'Fe2O3':  ['metal-oxide','oxidizing'],
+  'Al2O3':  ['metal-oxide','amphoteric-oxide'],
+  'CuO':    ['metal-oxide','basic-oxide'],
+  'MnO2':   ['metal-oxide','oxidizing','strong-oxidizer','mno2-oxidizer'],
+  'H2O2':   ['oxidizing','reducing'],
+  'CO':     ['reducing','flammable','metal-oxide-rx'],
+  'H2':     ['reducing','flammable','metal-oxide-rx'],
+  'NO':     ['no-oxidation'],
+  'NO2':    ['oxidizing','reducing'],
+  'SO3':    ['acidic-oxide','acidic-oxide-rx'],
+  'SiO2':   ['acidic-oxide','si-compound'],
+  'Na2O':   ['basic-oxide','basic-oxide-rx'],
+  'Na2O2':  ['peroxide','oxidizing'],
+  'Cu2O':   ['metal-oxide','cu1-oxide','reducing'],
+
+};
+
+function getTags(cardId) {
+  return CHEM_TAGS[cardId] || [];
+}
+
+function canReact(cardA, cardB) {
+  if(!cardA || !cardB) return false;
+  const idA = cardA.id, idB = cardB.id;
+  // === 明确不反应的物质对 ===
+  const noReact = [
+    ['Cl','CO2'],['CO2','Cl'],  // Cl₂与CO₂不反应
+    ['Cl','SO3'],['SO3','Cl'],  // Cl₂与SO₃常温不反应
+    ['Cl','SiO2'],['SiO2','Cl'], // Cl₂与SiO₂不反应
+    ['CO2','CO2'],['Cl','Cl'],   // 同种物质
+    ['N2','O2'],['O2','N2'],     // N₂与O₂常温不反应
+    ['N2','H2'],['H2','N2'],     // N₂与H₂常温不反应（需高温高压催化剂）
+    ['SiO2','NaOH'],['NaOH','SiO2'],  // SiO₂常温不与NaOH水溶液反应
+    ['SiO2','CaOH2'],['CaOH2','SiO2'], // SiO₂常温不与Ca(OH)₂反应
+    ['Cu2O','Cu'],['Cu','Cu2O'],  // Cu不能还原Cu₂O
+    ['Ag','H2SO4'],['H2SO4','Ag'],  // Ag不与冷浓H₂SO₄反应
+    ['Cu','H2SO4'],['H2SO4','Cu'],  // Cu不与稀H₂SO₄反应
+  ];
+  if(noReact.some(p=>p[0]===idA && p[1]===idB)) return false;
+  const tagsA = getTags(idA);
+  const tagsB = getTags(idB);
+  for(const rule of REACTION_RULES) {
+    const aMatchB = tagsA.some(t=>rule.tA.includes(t)) && tagsB.some(t=>rule.tB.includes(t));
+    const bMatchA = tagsA.some(t=>rule.tB.includes(t)) && tagsB.some(t=>rule.tA.includes(t));
+    if(aMatchB || bMatchA) {
+      if(rule.excludeTags) {
+        const hasExclude = tagsA.some(t=>rule.excludeTags.includes(t)) || tagsB.some(t=>rule.excludeTags.includes(t));
+        if(hasExclude) continue;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function getReactionInfo(cardA, cardB) {
+  if(!cardA || !cardB) return null;
+  const idA = cardA.id, idB = cardB.id;
+  const noReact = [['Cl','CO2'],['CO2','Cl'],['Cl','SO3'],['SO3','Cl'],['Cl','SiO2'],['SiO2','Cl'],['CO2','CO2'],['Cl','Cl'],['N2','O2'],['O2','N2'],['N2','H2'],['H2','N2'],['SiO2','NaOH'],['NaOH','SiO2'],['SiO2','CaOH2'],['CaOH2','SiO2'],['Cu2O','Cu'],['Cu','Cu2O'],['Ag','H2SO4'],['H2SO4','Ag'],['Cu','H2SO4'],['H2SO4','Cu']];
+  if(noReact.some(p=>p[0]===idA && p[1]===idB)) return null;
+  const tagsA = getTags(idA);
+  const tagsB = getTags(idB);
+  for(const rule of REACTION_RULES) {
+    const aMatchB = tagsA.some(t=>rule.tA.includes(t)) && tagsB.some(t=>rule.tB.includes(t));
+    const bMatchA = tagsA.some(t=>rule.tB.includes(t)) && tagsB.some(t=>rule.tA.includes(t));
+    if(aMatchB || bMatchA) {
+      if(rule.excludeTags) {
+        const hasExclude = tagsA.some(t=>rule.excludeTags.includes(t)) || tagsB.some(t=>rule.excludeTags.includes(t));
+        if(hasExclude) continue;
+      }
+      return rule;
+    }
+  }
+  return null;
+}
+
+// ========== EFFECTS SYSTEM ==========
+class Effects {
+  constructor() { this.layer = document.getElementById('effects-layer'); }
+  clear() { this.layer.innerHTML = ''; }
+  sparkles(x, y, count=6, colors=['#ffd700','#ff8c00','#fff']) {
+    for(let i=0;i<count;i++) {
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.textContent = ['✨','⭐','💫','⚡'][Math.floor(Math.random()*4)];
+      el.style.left = (x + (Math.random()-0.5)*60) + 'px';
+      el.style.top = (y + (Math.random()-0.5)*60) + 'px';
+      el.style.color = colors[Math.floor(Math.random()*colors.length)];
+      el.style.animationDelay = (Math.random()*0.3) + 's';
+      this.layer.appendChild(el);
+      setTimeout(()=>el.remove(), 1000);
+    }
+  }
+  particles(x, y, count=8, color='#ffd700') {
+    for(let i=0;i<count;i++) {
+      const el = document.createElement('div');
+      el.className = 'particle';
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      el.style.background = color;
+      el.style.boxShadow = `0 0 6px ${color}`;
+      const angle = (Math.PI*2/count)*i;
+      const dist = 30 + Math.random()*40;
+      el.style.marginLeft = (Math.cos(angle)*dist) + 'px';
+      el.style.marginTop = (Math.sin(angle)*dist) + 'px';
+      el.style.animation = `particle-float 1.2s ease-out ${i*0.05}s forwards`;
+      this.layer.appendChild(el);
+      setTimeout(()=>el.remove(), 1300);
+    }
+  }
+  flash() { const el = document.createElement('div'); el.className='screen-flash'; this.layer.appendChild(el); setTimeout(()=>el.remove(), 350); }
+  confetti() {
+    const colors = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c'];
+    for(let i=0;i<80;i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = Math.random()*100+'vw'; el.style.top = '-10px';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.width = (6+Math.random()*8)+'px'; el.style.height = (6+Math.random()*8)+'px';
+      el.style.borderRadius = Math.random()>0.5?'50%':'0';
+      el.style.animation = `confetti-fall ${2+Math.random()*3}s linear ${Math.random()*2}s forwards`;
+      this.layer.appendChild(el);
+      setTimeout(()=>el.remove(), 6000);
+    }
+  }
+}
+const effects = new Effects();
+
+// ========== GAME CLASS ==========
+class ChemistryGame {
+  constructor() {
+    this.deck = []; this.discardPile = [];
+    this.players = [[], []];
+    this.currentPlayer = 0; this.direction = 1;
+    this.gameStarted = false; this.isProcessing = false;
+    this.humanErrors = 0; this.maxErrors = 3;
+    this.playHistory = [];
+    this.reactionStats = { redox:0, precip:0, gas:0, water:0, complex:0 };
+  }
+
+  start() {
+    document.getElementById('start-screen').style.display = 'none';
+    this.gameStarted = true;
+    this.initDeck(); this.shuffle(); this.deal();
+    this.currentPlayer = 0;
+    this.render(); this.startTurn();
+    effects.sparkles(window.innerWidth/2, window.innerHeight/2, 10);
+  }
+
+  initDeck() {
+    this.deck = [];
+    ELEMENTS.forEach(e => { for(let i=0;i<3;i++) this.deck.push({...e, uid:e.id+'_'+i+'_'+Math.random()}); });
+    COMPOUNDS.forEach(c => { for(let i=0;i<3;i++) this.deck.push({...c, uid:c.id+'_'+i+'_'+Math.random()}); });
+
+    this.discardPile = [];
+  }
+
+  shuffle() {
+    for(let i=this.deck.length-1;i>0;i--) {
+      const j=Math.floor(Math.random()*(i+1));
+      [this.deck[i],this.deck[j]]=[this.deck[j],this.deck[i]];
+    }
+  }
+
+  deal() {
+    for(let p=0;p<2;p++) this.players[p]=[];
+    for(let i=0;i<5;i++) for(let p=0;p<2;p++) if(this.deck.length>0) this.players[p].push(this.deck.pop());
+    let firstCard = this.deck.pop();
+    this.discardPile.push(firstCard);
+  }
+
+  get topCard() { return this.discardPile[this.discardPile.length-1]; }
+
+  // 出牌判断：只有能发生真实化学反应才能出牌
+  canPlay(card) {
+    const top = this.topCard;
+    return canReact(card, top);
+  }
+
+  getMatchReason(card) {
+    const top = this.topCard;
+
+    const info = getReactionInfo(card, top);
+    if(info) return info.emoji + ' ' + info.name;
+    return '';
+  }
+
+  getPlayableCards(playerIndex) {
+    return this.players[playerIndex].map((c,i)=>({card:c,index:i})).filter(x=>this.canPlay(x.card));
+  }
+
+  playCard(playerIndex, cardIndex) {
+    const card = this.players[playerIndex].splice(cardIndex,1)[0];
+    const prevTop = this.topCard; // 在push之前保存旧牌堆顶
+    this.discardPile.push(card);
+    const names = ['你','AI'];
+    const info = getReactionInfo(card, prevTop);
+    const reason = info ? (info.emoji + ' ' + info.name) : '';
+    let toastHTML = `${names[playerIndex]} 出了 ${card.emoji||''} <b>${card.formula}</b> ${card.name}`;
+    if(reason) toastHTML += ` <span class="match-reason">${reason}</span>`;
+    this.showToast(toastHTML);
+    effects.sparkles(window.innerWidth/2, window.innerHeight/2, 5);
+    // 记录出牌历史
+    const prevCard = this.discardPile.length >= 2 ? this.discardPile[this.discardPile.length-2] : null;
+    this.playHistory.push({
+      player: names[playerIndex],
+      playerIdx: playerIndex,
+      card: card,
+      reason: reason,
+      prevCard: prevCard
+    });
+    if(this.playHistory.length > 3) this.playHistory.shift();
+    this.renderHistory();
+    // === 反应统计分类 ===
+    if(info) {
+      const r = info; // getReactionInfo返回的就是rule对象
+      const hasGas = r.eq && r.eq.includes('↑');
+      const isRedox = r.name.includes('氧化') || r.name.includes('还原') || (r.emoji && r.emoji.includes('⚡'));
+      const isPrecip = r.name.includes('沉淀') || (r.emoji && r.emoji.includes('💥')) || (r.eq && r.eq.includes('↓'));
+      if(isRedox) this.reactionStats.redox++;
+      if(isPrecip) this.reactionStats.precip++;
+      if(hasGas) this.reactionStats.gas++;
+      const hasWater = r.eq && r.eq.includes('H₂O');
+      if(hasWater) this.reactionStats.water++;
+      const isComplex = r.name.includes('配合');
+      if(isComplex) this.reactionStats.complex++;
+      this.renderStats();
+      // 检测是否五种反应各至少出现一次
+      if(this.reactionStats.redox >= 1 && this.reactionStats.precip >= 1 && this.reactionStats.gas >= 1 && this.reactionStats.water >= 1 && this.reactionStats.complex >= 1) {
+        this.showFireworks();
+        this.reactionStats = { redox:0, precip:0, gas:0, water:0, complex:0 };
+        setTimeout(()=>this.renderStats(), 2100);
+      }
+    }
+    if(this.players[playerIndex].length===0) { this.showWin(playerIndex); return; }
+    this.render();
+  }
+
+  getNextPlayer(from) { return (from + this.direction + 2) % 2; }
+  drawCards(playerIndex, count) { for(let i=0;i<count;i++) { if(this.deck.length===0) this.recycleDeck(); if(this.deck.length>0) this.players[playerIndex].push(this.deck.pop()); } }
+  recycleDeck() { if(this.discardPile.length<=1) return; const topCard = this.discardPile.pop(); this.deck = [...this.discardPile]; this.discardPile = [topCard]; this.shuffle(); }
+
+  drawFromPile() {
+    if(!this.gameStarted || this.isProcessing || this.currentPlayer!==0) return;
+    this.isProcessing = true;
+    if(this.getPlayableCards(0).length>0) { this.showToast('💡 你有可以出的牌，请点击高亮的卡牌！'); this.isProcessing = false; return; }
+    // Draw ONE card
+    this.drawOneCard(0);
+  }
+
+  drawOneCard(playerIndex) {
+    if(this.deck.length===0) this.recycleDeck();
+    if(this.deck.length===0) { this.showToast('牌堆已空！'); this.isProcessing = false; this.nextTurn(); return; }
+    this.players[playerIndex].push(this.deck.pop());
+    this.showToast('你摸了一张牌');
+    this.render();
+    // Show choice buttons
+    this.showDrawChoices();
+  }
+
+  showDrawChoices() {
+    // Remove existing buttons
+    document.querySelectorAll('.draw-choice-btn').forEach(b=>b.remove());
+    const playable = this.getPlayableCards(0);
+    const container = document.getElementById('player-bottom');
+    const btnWrap = document.createElement('div');
+    btnWrap.id = 'draw-choice-bar';
+    btnWrap.style.cssText = 'position:absolute; bottom:130px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:500;';
+    
+    if(playable.length > 0) {
+      // Can play - show play button
+      const playBtn = document.createElement('button');
+      playBtn.textContent = '🎉 出牌';
+      playBtn.className = 'draw-choice-btn';
+      playBtn.style.cssText = 'padding:8px 24px; background:linear-gradient(135deg,#2ecc71,#27ae60); color:#fff; border:none; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(46,204,113,0.4);';
+      playBtn.onclick = ()=>{ btnWrap.remove(); this.isProcessing = false; };
+      btnWrap.appendChild(playBtn);
+    } else {
+      // Cannot play - show continue or skip
+      const contBtn = document.createElement('button');
+      contBtn.textContent = '🃏 继续抓牌';
+      contBtn.className = 'draw-choice-btn';
+      contBtn.style.cssText = 'padding:8px 20px; background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; border:none; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(52,152,219,0.4);';
+      contBtn.onclick = ()=>{ btnWrap.remove(); this.drawOneCard(0); };
+      
+      const skipBtn = document.createElement('button');
+      skipBtn.textContent = '⏭️ 跳过回合';
+      skipBtn.className = 'draw-choice-btn';
+      skipBtn.style.cssText = 'padding:8px 20px; background:linear-gradient(135deg,#7f8c8d,#616a6b); color:#fff; border:none; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(127,140,141,0.4);';
+      skipBtn.onclick = ()=>{ btnWrap.remove(); this.isProcessing = false; this.nextTurn(); };
+      
+      btnWrap.appendChild(contBtn);
+      btnWrap.appendChild(skipBtn);
+    }
+    container.appendChild(btnWrap);
+  }
+
+  startTurn() {
+    if(!this.gameStarted || this.players[this.currentPlayer].length===0) return;
+    this.isProcessing = false; this.render(); this.highlightActivePlayer();
+    this.updateSkipBtn();
+    if(this.currentPlayer===0) { /* human turn */ }
+    else { setTimeout(()=>this.aiTurn(this.currentPlayer), 800+Math.random()*400); }
+  }
+
+  updateSkipBtn() {
+    const btn = document.getElementById('skip-turn-btn');
+    if(!btn) return;
+    if(this.currentPlayer===0 && !this.isProcessing) {
+      btn.disabled = false;
+      btn.style.display = 'block';
+    } else {
+      btn.disabled = true;
+      btn.style.display = 'none';
+    }
+  }
+
+  skipTurn() {
+    if(!this.gameStarted || this.isProcessing || this.currentPlayer!==0) return;
+    document.getElementById('skip-turn-btn').disabled = true;
+    this.drawCards(0, 1);
+    this.showToast('<span class="match-reason">⏭️ 跳过并摸一张牌</span>');
+    this.render();
+    setTimeout(()=>this.nextTurn(), 600);
+  }
+
+  highlightActivePlayer() { document.querySelectorAll('.player-info').forEach(el=>el.classList.remove('active')); document.getElementById('info-'+this.currentPlayer).classList.add('active'); }
+
+  playerClickCard(cardIndex) {
+    if(!this.gameStarted || this.isProcessing || this.currentPlayer!==0) return;
+    const card = this.players[0][cardIndex];
+    if(!this.canPlay(card)) {
+      // 出牌错误！
+      this.humanErrors++;
+      this.updateErrorDisplay();
+      if(this.humanErrors >= this.maxErrors) {
+        this.showToast('<span class="match-reason">❌ 错误次数达到上限！你输了！</span>');
+        effects.flash();
+        setTimeout(()=>this.showWin(1), 1500); // AI获胜
+        return;
+      }
+      const top = this.topCard;
+      this.showToast(`<span class="match-reason">❌ ${card.formula}${card.name} 与 ${top.formula}${top.name} 不能发生化学反应！跳过本轮 (已错${this.humanErrors}/${this.maxErrors}次)</span>`);
+      effects.flash();
+      setTimeout(()=>this.nextTurn(), 1000);
+      return;
+    }
+    this.playCard(0, cardIndex); setTimeout(()=>this.nextTurn(), 700);
+  }
+
+  updateErrorDisplay() {
+    const el = document.getElementById('errors-0');
+    if(this.humanErrors > 0) {
+      el.textContent = '❌ ' + this.humanErrors + '/' + this.maxErrors;
+      el.style.display = 'block';
+      if(this.humanErrors >= 2) el.style.animation = 'player-pulse 0.5s ease-in-out infinite';
+    }
+  }
+
+  aiTurn(playerIndex) {
+    if(!this.gameStarted) return;
+    this.isProcessing = true;
+    const playable = this.getPlayableCards(playerIndex);
+    if(playable.length>0) {
+      let chosen;
+      const anyOpponentLow = this.players.some((p,i)=>i!==playerIndex && p.length<=2);
+      if(anyOpponentLow) chosen = playable[Math.floor(Math.random()*playable.length)];
+      else chosen = playable[Math.floor(Math.random()*playable.length)];
+      this.playCard(playerIndex, chosen.index);
+      setTimeout(()=>{ this.isProcessing=false; this.nextTurn(); }, 1000);
+    } else {
+      // AI无牌可出：摸1张牌，能出就出，不能出就跳过
+      if(this.deck.length===0) this.recycleDeck();
+      if(this.deck.length>0) {
+        this.players[playerIndex].push(this.deck.pop());
+        this.showToast('🤖 AI摸了1张牌');
+        this.render();
+      }
+      setTimeout(()=>{
+        this.isProcessing = false;
+        if(this.players[playerIndex].length===0) return;
+        const newPlayable = this.getPlayableCards(playerIndex);
+        if(newPlayable.length>0) {
+          this.playCard(playerIndex, newPlayable[newPlayable.length-1].index);
+          setTimeout(()=>this.nextTurn(), 800);
+        } else {
+          this.showToast('🤖 AI跳过回合');
+          this.nextTurn();
+        }
+      }, 600);
+    }
+  }
+
+  nextTurn() { this.currentPlayer = this.getNextPlayer(this.currentPlayer); this.startTurn(); }
+
+  showToast(html) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = html;
+    container.appendChild(toast);
+    setTimeout(()=>{ toast.classList.add('leaving'); setTimeout(()=>toast.remove(), 400); }, 2500);
+  }
+
+  showWin(playerIndex) {
+    this.gameStarted = false;
+    const names = ['🎉 你赢了！','🤖 AI 获胜'];
+    const isHuman = playerIndex===0;
+    document.getElementById('win-title').textContent = names[playerIndex];
+    document.getElementById('win-title').style.color = isHuman?'#ffd700':'#e74c3c';
+    document.getElementById('win-text').textContent = isHuman?'太棒了！你最先出完了所有手牌！':names[playerIndex].replace('获胜','')+' 率先出完手牌，再接再厉！';
+    document.getElementById('win-screen').style.display = 'flex';
+    if(isHuman) effects.confetti();
+    else effects.sparkles(window.innerWidth/2, window.innerHeight/2, 20, ['#e74c3c','#c0392b']);
+  }
+
+  render() {
+    this.renderHand(0,'hand-0',true); this.renderHand(1,'hand-1',false);
+    this.renderTopCard(); this.renderCounts();
+    document.getElementById('draw-count').textContent = '剩余: '+this.deck.length;
+  }
+
+  renderStats() {
+    document.getElementById('rs-redox').textContent = this.reactionStats.redox;
+    document.getElementById('rs-precip').textContent = this.reactionStats.precip;
+    document.getElementById('rs-gas').textContent = this.reactionStats.gas;
+    document.getElementById('rs-water').textContent = this.reactionStats.water;
+    document.getElementById('rs-complex').textContent = this.reactionStats.complex;
+  }
+
+  showFireworks() {
+    const layer = document.getElementById('fireworks-layer');
+    if(!layer) return;
+    layer.innerHTML = '<div class="fw-center-text">🎉 集齐五种反应！</div>';
+    layer.classList.add('active');
+    const colors = ['#ff0040','#ff8000','#ffff00','#00ff40','#00ffff','#0080ff','#ff00ff','#ffffff'];
+    const centerX = window.innerWidth/2;
+    const centerY = window.innerHeight/2;
+    for(let i=0;i<60;i++) {
+      const fw = document.createElement('div');
+      fw.className = 'firework';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 80 + Math.random()*250;
+      const tx = Math.cos(angle)*dist + 'px';
+      const ty = Math.sin(angle)*dist + 'px';
+      fw.style.setProperty('--tx', tx);
+      fw.style.setProperty('--ty', ty);
+      fw.style.background = colors[Math.floor(Math.random()*colors.length)];
+      fw.style.left = centerX + 'px';
+      fw.style.top = centerY + 'px';
+      fw.style.boxShadow = '0 0 6px ' + fw.style.background;
+      layer.appendChild(fw);
+    }
+    setTimeout(()=>{ layer.classList.remove('active'); layer.innerHTML = ''; }, 2000);
+  }
+
+  renderHistory() {
+    const list = document.getElementById('ph-list');
+    if(!list) return;
+    if(this.playHistory.length === 0) {
+      list.innerHTML = '<div class="ph-empty">等待开始...</div>';
+      return;
+    }
+    list.innerHTML = this.playHistory.map(h => {
+      const cls = 'p' + h.playerIdx;
+      const prev = h.prevCard ? `<span style="color:rgba(255,255,255,0.4)">${h.prevCard.formula}</span> → ` : '';
+      return `<div class="ph-entry">
+        <span class="ph-player ${cls}">${h.player}</span>
+        <span class="ph-card">${prev}${h.card.formula} ${h.card.name}</span>
+        ${h.reason ? `<span class="ph-reason">${h.reason}</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  renderHand(playerIndex, containerId, faceUp) {
+    const container = document.getElementById(containerId); container.innerHTML = '';
+    const hand = this.players[playerIndex];
+    hand.forEach((card, idx)=>{
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card'; cardEl.style.animationDelay = (idx * 0.06) + 's';
+      if(faceUp) {
+        // Build tooltip with chemical properties
+        const tags = CHEM_TAGS[card.id] || [];
+        const tagNames = {
+          'nonmetal':'非金属', 'metal':'金属', 'halogen':'卤素', 'alkali-metal':'碱金属',
+          'alkaline-earth':'碱土金属', 'transition-metal':'过渡金属',
+          'acid':'酸', 'base':'碱', 'salt':'盐', 'oxide':'氧化物',
+          'oxidizing':'氧化性', 'reducing':'还原性', 'flammable':'可燃性',
+          'active-metal':'活泼金属', 'medium-active-metal':'中等活泼金属', 'very-active-metal':'极活泼金属',
+          'amphoteric':'两性', 'water':'水', 'strong-oxidizer':'强氧化剂',
+          'carbonate':'碳酸盐', 'cl-salt':'氯化物', 'sulfate':'硫酸盐', 'sulfite':'亚硫酸盐',
+          'silicate':'硅酸盐', 'halide-salt':'卤化物盐',
+          'basic-oxide':'碱性氧化物', 'acidic-oxide':'酸性氧化物', 'amphoteric-oxide':'两性氧化物',
+          'metal-oxide':'金属氧化物', 'peroxide':'过氧化物',
+          'non-oxidizing-acid':'非氧化性酸', 'oxidizing-acid':'氧化性酸',
+          'hydrogen':'氢', 'oxygen':'氧气', 'si-element':'硅元素',
+          'hydrocarbon':'烃类'
+        };
+        const tagHTML = tags.map(t=>`<span class="tt-tag">${tagNames[t]||t}</span>`).join('');
+        const tooltipHTML = tagHTML ? `<div class="card-tooltip"><div class="tt-title">${card.formula} ${card.name}</div>${tagHTML}</div>` : '';
+        
+        cardEl.innerHTML = `<div class="card-face cat-${card.category}"><span class="card-corner">${card.formula}</span><span class="card-state">${card.emoji||''}</span><span class="card-formula">${card.formula}</span><span class="card-name">${card.name}</span><span class="card-type">${CATEGORY_NAMES[card.category]||''}</span>${tooltipHTML}</div>`;
+        if(this.currentPlayer===playerIndex) cardEl.onclick = ()=>this.playerClickCard(idx);
+        // Show tooltip on hover
+        const tooltip = cardEl.querySelector('.card-tooltip');
+        if(tooltip) {
+          cardEl.addEventListener('mouseenter', ()=>tooltip.classList.add('visible'));
+          cardEl.addEventListener('mouseleave', ()=>tooltip.classList.remove('visible'));
+        }
+      } else { cardEl.innerHTML = '<div class="card-back"></div>'; }
+      container.appendChild(cardEl);
+    });
+  }
+
+  renderTopCard() {
+    const container = document.getElementById('last-card'); container.innerHTML = '';
+    if(this.topCard) {
+      const c = this.topCard;
+      const tags = CHEM_TAGS[c.id] || [];
+      const tagNames = {
+        'nonmetal':'非金属', 'metal':'金属', 'halogen':'卤素', 'alkali-metal':'碱金属',
+        'alkaline-earth':'碱土金属', 'transition-metal':'过渡金属',
+        'acid':'酸', 'base':'碱', 'salt':'盐', 'oxide':'氧化物',
+        'oxidizing':'氧化性', 'reducing':'还原性', 'flammable':'可燃性',
+        'active-metal':'活泼金属', 'medium-active-metal':'中等活泼金属', 'very-active-metal':'极活泼金属',
+        'amphoteric':'两性', 'water':'水', 'strong-oxidizer':'强氧化剂',
+        'carbonate':'碳酸盐', 'cl-salt':'氯化物', 'sulfate':'硫酸盐', 'sulfite':'亚硫酸盐',
+        'silicate':'硅酸盐', 'halide-salt':'卤化物盐',
+        'basic-oxide':'碱性氧化物', 'acidic-oxide':'酸性氧化物', 'amphoteric-oxide':'两性氧化物',
+        'metal-oxide':'金属氧化物', 'peroxide':'过氧化物',
+        'non-oxidizing-acid':'非氧化性酸', 'oxidizing-acid':'氧化性酸',
+        'hydrogen':'氢', 'oxygen':'氧气', 'si-element':'硅元素',
+        'hydrocarbon':'烃类'
+      };
+      const tagHTML = tags.map(t=>`<span class="tt-tag">${tagNames[t]||t}</span>`).join('');
+      const tooltipHTML = tagHTML ? `<div class="card-tooltip"><div class="tt-title">${c.formula} ${c.name}</div>${tagHTML}</div>` : '';
+      container.innerHTML = `<div class="card" style="animation:card-in 0.5s ease"><div class="card-face cat-${c.category}"><span class="card-corner">${c.formula}</span><span class="card-state">${c.emoji||''}</span><span class="card-formula">${c.formula}</span><span class="card-name">${c.name}</span><span class="card-type">${CATEGORY_NAMES[c.category]||''}</span>${tooltipHTML}</div></div>`;
+      const cardEl = container.querySelector('.card');
+      const tooltip = cardEl.querySelector('.card-tooltip');
+      if(tooltip) {
+        cardEl.addEventListener('mouseenter', ()=>tooltip.classList.add('visible'));
+        cardEl.addEventListener('mouseleave', ()=>tooltip.classList.remove('visible'));
+      }
+    }
+  }
+
+  renderCounts() { for(let i=0;i<2;i++) document.getElementById('count-'+i).textContent = this.players[i].length + '张'; }
+}
+
+const game = new ChemistryGame();
+
+// ========== FEEDBACK SYSTEM ==========
+(function(){
+  const feedbacks = [];
+  const fbText = document.getElementById('fb-text');
+  const fbStatus = document.getElementById('fb-status');
+  const fbSubmitText = document.getElementById('fb-submit-text');
+  const fbVoice = document.getElementById('fb-voice');
+  
+  function submitFeedback(text, type) {
+    if(!text || !text.trim()) { fbStatus.textContent = '请输入内容'; return; }
+    const entry = { text: text.trim(), type: type, time: new Date().toLocaleString('zh-CN') };
+    feedbacks.push(entry);
+    fbText.value = '';
+    fbStatus.textContent = '✅ 已提交！感谢您的反馈';
+    console.log('[Feedback]', entry);
+    // 可扩展：发送到后台服务器
+    // fetch('/api/feedback', { method:'POST', body:JSON.stringify(entry) })
+  }
+  
+  fbSubmitText.addEventListener('click', () => submitFeedback(fbText.value, 'text'));
+  
+  fbVoice.addEventListener('click', () => {
+    if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      fbStatus.textContent = '当前浏览器不支持语音输入'; return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.lang = 'zh-CN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    fbStatus.textContent = '🎙️ 正在录音...';
+    recognition.start();
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      fbText.value += text;
+      fbStatus.textContent = '语音识别完成';
+    };
+    recognition.onerror = (e) => { fbStatus.textContent = '语音识别失败: ' + e.error; };
+    recognition.onend = () => {};
+  });
+})();
+
+// ========== DRAGGABLE PANELS ==========
+(function(){
+  const panels = ['play-history', 'reaction-stats', 'feedback-panel'];
+
+  function makeDraggable(id) {
+    const el = document.getElementById(id);
+    if(!el) return;
+
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+
+    // Load saved position
+    const saved = localStorage.getItem('panel-pos-' + id);
+    if(saved) {
+      try {
+        const pos = JSON.parse(saved);
+        if(pos.top !== undefined) { el.style.top = pos.top + 'px'; el.style.bottom = 'auto'; }
+        if(pos.left !== undefined) { el.style.left = pos.left + 'px'; el.style.right = 'auto'; }
+      } catch(e) {}
+    }
+
+    function onStart(e) {
+      isDragging = true;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      startX = clientX;
+      startY = clientY;
+      const rect = el.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+      el.style.transition = 'none';
+      e.preventDefault();
+    }
+
+    function onMove(e) {
+      if(!isDragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+      el.style.left = (startLeft + dx) + 'px';
+      el.style.top = (startTop + dy) + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+      e.preventDefault();
+    }
+
+    function onEnd(e) {
+      if(!isDragging) return;
+      isDragging = false;
+      el.style.transition = '';
+      const rect = el.getBoundingClientRect();
+      const pos = { top: rect.top, left: rect.left };
+      localStorage.setItem('panel-pos-' + id, JSON.stringify(pos));
+    }
+
+    el.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    el.addEventListener('touchstart', onStart, {passive: false});
+    document.addEventListener('touchmove', onMove, {passive: false});
+    document.addEventListener('touchend', onEnd);
+  }
+
+  panels.forEach(makeDraggable);
+})();
+</script>
+</body>
+</html>
